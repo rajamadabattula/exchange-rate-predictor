@@ -367,6 +367,28 @@ st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
 # ── How to read this dashboard ─────────────────────────────────────────────────
 
+with st.expander("Why this was built", expanded=False):
+    st.markdown("""
+I came from India to the US for my Master's degree. Like most international students, I carry debt
+back home — and every month I face the same stressful question: *when do I send money?*
+
+The exchange rate is unpredictable. The apps we use for international transfers lock in the rate
+the moment you hit send — there's no going back.
+
+A week before building this, I sent money at a rate that was **$3 lower** than it became just days
+later. That's thousands of rupees lost in a single transfer. For someone managing student debt
+across two currencies, that's not a rounding error — **it genuinely hurts.**
+
+I had the data skills. I had the tools. So instead of guessing, I built this.
+
+This dashboard watches the USD/INR rate around the clock, predicts where it's heading, and tells
+you in plain English — **send now** or **wait**. No charts to interpret. No finance degree required.
+Just a clear signal when the time is right.
+
+I built it for myself. But every international student sending money home faces the exact same
+problem. If this helps even one person avoid a bad transfer day, it was worth building.
+""")
+
 with st.expander("How to read this dashboard", expanded=False):
     rsi_val  = ind.rsi_14
     rsi_status = (

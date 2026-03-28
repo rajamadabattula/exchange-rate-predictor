@@ -2,7 +2,23 @@
 
 A personal finance tool that monitors the USD/INR exchange rate, predicts the best time to send money internationally, and delivers plain-English alerts via Telegram — powered by technical indicators, linear regression, and an optional LLM-powered advisor.
 
-> **Built to solve a real problem:** The exchange rate almost always rises after sending money. This system predicts the optimal window so you can lock in the best rate.
+---
+
+## The Story Behind This Project
+
+I came from India to the US for my Master's degree. Like most international students, I carry debt back home — and every month, I face the same stressful question: *when do I send money?*
+
+The exchange rate is unpredictable. Some days it's good, some days it isn't. And the apps we use for international transfers lock in the rate the moment you hit send — there's no going back.
+
+A week before building this, I sent money at a rate that was $3 lower than it became just days later. That's thousands of rupees lost in a single transfer. For someone managing student debt across two currencies, that's not a rounding error — it genuinely hurts.
+
+I had the data skills. I had the tools. So instead of guessing, I built this.
+
+This dashboard watches the USD/INR rate around the clock, predicts where it's heading, and tells you in plain English — *send now* or *wait*. No charts to interpret. No finance degree required. Just a clear signal when the time is right.
+
+I built it for myself. But every international student sending money home faces the exact same problem. If this helps even one person avoid a bad transfer day, it was worth building.
+
+---
 
 ---
 
