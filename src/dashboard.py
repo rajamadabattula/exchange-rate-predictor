@@ -582,8 +582,8 @@ st.markdown(
     "<strong style='color:#92400E;font-size:0.85rem'>⚠️ DATA SOURCE DISCLAIMER</strong>"
     "<p style='color:#78350F;font-size:0.8rem;margin:0.4rem 0 0'>"
     "Rates shown are sourced from <strong>Yahoo Finance (USDINR=X)</strong>, not Google Finance. "
-    "Yahoo Finance rates may differ from Google by up to ±0.10–0.15 INR. "
-    "<strong>Always verify the live rate on Google Finance or your transfer provider before sending money. "
+    "Yahoo Finance rates may differ from your transfer service by up to ±0.10–0.15 INR. "
+    "<strong>Always verify the live rate on your transfer service before sending money. "
     "Do your own research.</strong></p></div>",
     unsafe_allow_html=True,
 )
