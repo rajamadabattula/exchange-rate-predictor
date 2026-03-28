@@ -571,7 +571,19 @@ st.markdown(
     f"<div style='font-size:0.72rem;color:#D1D5DB;text-align:center;"
     f"padding-top:1rem;border-top:1px solid #F3F4F6'>"
     f"Updated {datetime.now(timezone.utc).strftime('%d %b %Y · %H:%M UTC')}"
-    f" &nbsp;·&nbsp; Yahoo Finance (USDINR=X) &nbsp;·&nbsp; Target = 48h avg + 0.5 &nbsp;·&nbsp; Not financial advice"
+    f" &nbsp;·&nbsp; Target = 48h avg + 0.5 &nbsp;·&nbsp; Not financial advice"
     f"</div>",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    "<div style='margin-top:0.75rem;padding:0.85rem 1.25rem;background:#FEF9C3;"
+    "border:2px solid #EAB308;border-radius:8px;text-align:center'>"
+    "<strong style='color:#92400E;font-size:0.85rem'>⚠️ DATA SOURCE DISCLAIMER</strong>"
+    "<p style='color:#78350F;font-size:0.8rem;margin:0.4rem 0 0'>"
+    "Rates shown are sourced from <strong>Yahoo Finance (USDINR=X)</strong>, not Google Finance. "
+    "Yahoo Finance rates may differ from Google by up to ±0.10–0.15 INR. "
+    "<strong>Always verify the live rate on Google Finance or your transfer provider before sending money. "
+    "Do your own research.</strong></p></div>",
     unsafe_allow_html=True,
 )

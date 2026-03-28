@@ -70,7 +70,7 @@ def fetch_current_rate() -> float | None:
         if data.empty:
             logger.warning("Empty response from Yahoo Finance for current rate.")
             return None
-        rate = float(data["Close"].iloc[-1])
+        rate = round(float(data["Close"].iloc[-1]), 4)
         logger.info("Current rate fetched: %.4f", rate)
         return rate
     except Exception as exc:
