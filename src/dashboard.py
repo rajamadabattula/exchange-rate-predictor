@@ -128,6 +128,35 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Sidebar — Telegram setup ──────────────────────────────────────────────────
+
+with st.sidebar:
+    st.markdown("### 📲 Your Telegram Alerts")
+    st.markdown(
+        "Get alerts sent directly to **your** Telegram.\n\n"
+        "**Step 1:** Open Telegram and message [@userinfobot](https://t.me/userinfobot) — "
+        "it replies instantly with your Chat ID.\n\n"
+        "**Step 2:** Paste it below."
+    )
+    user_chat_id = st.text_input(
+        "Your Telegram Chat ID",
+        placeholder="e.g. 123456789",
+        help="Message @userinfobot on Telegram to get this instantly.",
+    )
+    if user_chat_id.strip():
+        st.success("Ready — Send buttons are active.")
+    else:
+        st.info("Enter your Chat ID to enable Send buttons.")
+
+    st.markdown("---")
+    st.markdown(
+        "<div style='font-size:0.75rem;color:#9CA3AF'>"
+        "Your Chat ID is stored only in your browser session. "
+        "It is never saved to any database."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
 # ── Why this was built ────────────────────────────────────────────────────────
 
 st.markdown("""
@@ -212,9 +241,11 @@ with col_right:
         st.cache_data.clear()
         st.rerun()
     st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
-    if st.button("📲 Send Alert", use_container_width=True, type="primary"):
-        sent = send_message(format_message(dec, ind))
-        st.toast("Sent to Telegram!" if sent else "Failed — check config.py",
+    if st.button("📲 Send Alert", use_container_width=True, type="primary",
+                 disabled=not user_chat_id.strip()):
+        cid  = user_chat_id.strip()
+        sent = send_message(format_message(dec, ind), chat_id=cid)
+        st.toast("Sent to your Telegram!" if sent else "Failed — check your Chat ID.",
                  icon="📲" if sent else "⚠️")
 
 # ── Signal banner ─────────────────────────────────────────────────────────────
@@ -526,9 +557,11 @@ for key in QUESTIONS:
             unsafe_allow_html=True,
         )
         st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-        if st.button("📲 Send this to Telegram", key=f"tg_{key}"):
-            sent = send_message(tg_ans)
-            st.toast("Sent to Telegram!" if sent else "Failed — check config.py",
+        if st.button("📲 Send this to Telegram", key=f"tg_{key}",
+                     disabled=not user_chat_id.strip()):
+            cid  = user_chat_id.strip()
+            sent = send_message(tg_ans, chat_id=cid)
+            st.toast("Sent to your Telegram!" if sent else "Failed — check your Chat ID.",
                      icon="📲" if sent else "⚠️")
         break  # only one answer visible at a time
 
