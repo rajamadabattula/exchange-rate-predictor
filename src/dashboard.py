@@ -131,12 +131,14 @@ st.markdown("""
 # ── Sidebar — Telegram setup ──────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("### 📲 Your Telegram Alerts")
+    st.markdown("### 📲 Get Alerts on Your Telegram")
     st.markdown(
-        "Get alerts sent directly to **your** Telegram.\n\n"
-        "**Step 1:** Open Telegram and message [@userinfobot](https://t.me/userinfobot) — "
+        "Follow these 3 steps to receive alerts:\n\n"
+        "**Step 1:** Open Telegram and search for **@usdinr_predictor_bot** — "
+        "send it any message (e.g. `hi`). This activates your account with the bot.\n\n"
+        "**Step 2:** Message [@userinfobot](https://t.me/userinfobot) on Telegram — "
         "it replies instantly with your Chat ID.\n\n"
-        "**Step 2:** Paste it below."
+        "**Step 3:** Paste your Chat ID below and hit Enter."
     )
     user_chat_id = st.text_input(
         "Your Telegram Chat ID",
@@ -144,9 +146,9 @@ with st.sidebar:
         help="Message @userinfobot on Telegram to get this instantly.",
     )
     if user_chat_id.strip():
-        st.success("Ready — Send buttons are active.")
+        st.success("✅ Ready — Send buttons are active.")
     else:
-        st.info("Enter your Chat ID to enable Send buttons.")
+        st.info("Complete the 3 steps above to enable Send buttons.")
 
     st.markdown("---")
     st.markdown(
@@ -248,7 +250,7 @@ with col_right:
                  disabled=not user_chat_id.strip()):
         cid  = user_chat_id.strip()
         sent = send_message(format_message(dec, ind), chat_id=cid)
-        st.toast("Sent to your Telegram!" if sent else "Failed — check your Chat ID.",
+        st.toast("Sent to your Telegram!" if sent else "Failed — did you message the bot first? (Step 1)",
                  icon="📲" if sent else "⚠️")
 
 # ── Signal banner ─────────────────────────────────────────────────────────────
@@ -564,7 +566,7 @@ for key in QUESTIONS:
                      disabled=not user_chat_id.strip()):
             cid  = user_chat_id.strip()
             sent = send_message(tg_ans, chat_id=cid)
-            st.toast("Sent to your Telegram!" if sent else "Failed — check your Chat ID.",
+            st.toast("Sent to your Telegram!" if sent else "Failed — did you message the bot first? (Step 1)",
                      icon="📲" if sent else "⚠️")
         break  # only one answer visible at a time
 
