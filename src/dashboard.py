@@ -217,7 +217,7 @@ with col_left:
     )
     st.markdown(
         f'<div class="rate-block">'
-        f'<div class="rate-number">{ind.current_rate:.2f}</div>'
+        f'<div class="rate-number">{ind.current_rate:.4f}</div>'
         f'<div class="rate-sub">'
         f'<span style="color:{delta_color};font-weight:600">'
         f'{delta_sign}{rate_vs_avg:.4f}</span>'
