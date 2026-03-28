@@ -13,7 +13,7 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
-from src.fetcher   import bootstrap, fetch_current_rate, save_current_rate, load_rates
+from src.fetcher   import bootstrap, fetch_current_rate, save_current_rate, load_rates, get_daily_target
 from src.predictor import analyse
 from src.decision  import decide, format_message, Signal
 from src.alerter   import send_message
@@ -139,6 +139,8 @@ def get_data():
     df_10d     = load_rates(days=10)   # 10 days for y-axis floor calculation
     df         = load_rates(days=3)    # 72 hours for chart display
     indicators = analyse(df_10d)       # analyse on full 10d for better indicators
+    if indicators:
+        indicators.dynamic_target = get_daily_target(indicators.ma_48h)
     decision   = decide(indicators) if indicators else None
     return df, df_10d, indicators, decision
 
@@ -178,7 +180,7 @@ with col_left:
         f'<span style="color:{delta_color};font-weight:600">'
         f'{delta_sign}{rate_vs_avg:.4f}</span>'
         f'&nbsp; vs 24h average &nbsp;·&nbsp; '
-        f'Target: <strong>{ind.dynamic_target:.2f}</strong> <span style="color:#9CA3AF;font-size:0.75rem">(48h avg + 0.5)</span>'
+        f'Target: <strong>{ind.dynamic_target:.2f}</strong> <span style="color:#9CA3AF;font-size:0.75rem">(set daily · resets midnight UTC)</span>'
         f'</div></div>',
         unsafe_allow_html=True,
     )

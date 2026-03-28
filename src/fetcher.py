@@ -52,6 +52,12 @@ def init_db() -> None:
                 last_summary_time TIMESTAMP
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS daily_targets (
+                date   TEXT PRIMARY KEY,
+                target DOUBLE PRECISION NOT NULL
+            )
+        """)
         conn.commit()
         logger.info("Database initialised.")
     finally:
@@ -165,6 +171,37 @@ def load_rates(days: int = config.HISTORY_DAYS) -> pd.DataFrame:
     df = pd.DataFrame(rows, columns=cols)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     return df
+
+
+# -----------------------------------------------------------------------------
+# Daily target — locked once per UTC day
+# -----------------------------------------------------------------------------
+
+def get_daily_target(ma_48h: float) -> float:
+    """
+    Return today's target rate. Calculated once at the first run of each UTC day
+    as (48h moving average + 0.5) and stored in the DB.
+    Stays fixed for the rest of the day so the goalpost doesn't move.
+    """
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conn  = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT target FROM daily_targets WHERE date = %s", (today,))
+        row = cur.fetchone()
+        if row:
+            return round(row[0], 4)
+        # First run today — calculate and store
+        target = round(ma_48h + 0.5, 4)
+        cur.execute(
+            "INSERT INTO daily_targets (date, target) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (today, target)
+        )
+        conn.commit()
+        logger.info("New daily target set for %s: %.4f", today, target)
+        return target
+    finally:
+        conn.close()
 
 
 # -----------------------------------------------------------------------------
