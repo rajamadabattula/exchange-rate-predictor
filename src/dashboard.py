@@ -13,7 +13,7 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
-from src.fetcher   import bootstrap, fetch_current_rate, save_current_rate, load_rates, get_daily_target
+from src.fetcher   import bootstrap, load_rates, get_daily_target
 from src.predictor import analyse
 from src.decision  import decide, format_message, Signal
 from src.alerter   import send_message
@@ -182,12 +182,9 @@ Built for myself. Useful for every international student sending money home.
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def get_data():
     bootstrap()
-    rate = fetch_current_rate()
-    if rate:
-        save_current_rate(rate)
     df_10d     = load_rates(days=10)   # 10 days for y-axis floor calculation
     df         = load_rates(days=3)    # 72 hours for chart display
     indicators = analyse(df_10d)       # analyse on full 10d for better indicators
