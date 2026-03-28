@@ -1,6 +1,14 @@
 # USD → INR Rate Predictor
 
+![Rate Check](https://github.com/rajamadabattula/exchange-rate-predictor/actions/workflows/scheduler.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.14-blue)
+![Tests](https://img.shields.io/badge/tests-33%20passing-brightgreen)
+
 A personal finance tool that monitors the USD/INR exchange rate, predicts the best time to send money internationally, and delivers plain-English alerts via Telegram — powered by technical indicators, linear regression, and an optional LLM-powered advisor.
+
+---
+
+🔴 **[Live Dashboard → exchange-rate-predictor.streamlit.app](https://exchange-rate-predictor.streamlit.app/)**
 
 ---
 
