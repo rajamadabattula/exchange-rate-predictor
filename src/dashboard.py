@@ -128,6 +128,27 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Why this was built ────────────────────────────────────────────────────────
+
+st.markdown("""
+<div style="background:#EFF6FF;border-left:4px solid #2563EB;border-radius:8px;
+padding:1.1rem 1.4rem;margin-bottom:1.5rem">
+<div style="font-size:0.95rem;font-weight:700;color:#1D4ED8;margin-bottom:0.5rem">
+Why this exists</div>
+<div style="font-size:0.85rem;color:#1E3A5F;line-height:1.7">
+I came from India to the US for my Master's degree. Like most international students, I carry debt
+back home — and every month I face the same question: <em>when do I send money?</em><br><br>
+A week before building this, I sent money at a rate that was <strong>$3 lower</strong> than it
+became just days later. That's thousands of rupees lost in a single transfer.
+For someone managing student debt across two currencies, that's not a rounding error —
+<strong>it genuinely hurts.</strong><br><br>
+So instead of guessing, I built this. It watches the rate around the clock, predicts where it's
+heading, and tells you in plain English — <strong>send now</strong> or <strong>wait</strong>.
+Built for myself. Useful for every international student sending money home.
+</div>
+</div>
+""", unsafe_allow_html=True)
+
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
@@ -367,27 +388,6 @@ st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
 # ── How to read this dashboard ─────────────────────────────────────────────────
 
-with st.expander("Why this was built", expanded=False):
-    st.markdown("""
-I came from India to the US for my Master's degree. Like most international students, I carry debt
-back home — and every month I face the same stressful question: *when do I send money?*
-
-The exchange rate is unpredictable. The apps we use for international transfers lock in the rate
-the moment you hit send — there's no going back.
-
-A week before building this, I sent money at a rate that was **$3 lower** than it became just days
-later. That's thousands of rupees lost in a single transfer. For someone managing student debt
-across two currencies, that's not a rounding error — **it genuinely hurts.**
-
-I had the data skills. I had the tools. So instead of guessing, I built this.
-
-This dashboard watches the USD/INR rate around the clock, predicts where it's heading, and tells
-you in plain English — **send now** or **wait**. No charts to interpret. No finance degree required.
-Just a clear signal when the time is right.
-
-I built it for myself. But every international student sending money home faces the exact same
-problem. If this helps even one person avoid a bad transfer day, it was worth building.
-""")
 
 with st.expander("How to read this dashboard", expanded=False):
     rsi_val  = ind.rsi_14
