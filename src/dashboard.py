@@ -26,7 +26,7 @@ st.set_page_config(
     page_title="USD/INR · Rate Predictor",
     page_icon="💹",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown("""
@@ -128,36 +128,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sidebar — Telegram setup ──────────────────────────────────────────────────
+# ── Telegram setup — always visible on main page ──────────────────────────────
 
-with st.sidebar:
-    st.markdown("### 📲 Get Alerts on Your Telegram")
+with st.expander("📲 Get Telegram Alerts — Enter your Chat ID here", expanded=True):
     st.markdown(
-        "Follow these 3 steps to receive alerts:\n\n"
-        "**Step 1:** Open Telegram and search for **@Rajam009bot** —"
-        "send it any message (e.g. `hi`). This activates your account with the bot.\n\n"
-        "**Step 2:** Message [@userinfobot](https://t.me/userinfobot) on Telegram — "
-        "it replies instantly with your Chat ID.\n\n"
-        "**Step 3:** Paste your Chat ID below and hit Enter."
+        "**Step 1:** Search **@Rajam009bot** on Telegram → send it `hi` (activates the bot for you)\n\n"
+        "**Step 2:** Message [@userinfobot](https://t.me/userinfobot) on Telegram → it replies with your Chat ID\n\n"
+        "**Step 3:** Paste your Chat ID below"
     )
     user_chat_id = st.text_input(
         "Your Telegram Chat ID",
         placeholder="e.g. 123456789",
-        help="Message @userinfobot on Telegram to get this instantly.",
+        label_visibility="collapsed",
     )
     if user_chat_id.strip():
         st.success("✅ Ready — Send buttons are active.")
     else:
-        st.info("Complete the 3 steps above to enable Send buttons.")
-
-    st.markdown("---")
-    st.markdown(
-        "<div style='font-size:0.75rem;color:#9CA3AF'>"
-        "Your Chat ID is stored only in your browser session. "
-        "It is never saved to any database."
-        "</div>",
-        unsafe_allow_html=True,
-    )
+        st.caption("Your Chat ID is only stored in your browser session — never saved to any database.")
 
 # ── Why this was built ────────────────────────────────────────────────────────
 
@@ -196,8 +183,6 @@ def get_data():
 
 df, df_10d, ind, dec, last_updated = get_data()
 
-if not user_chat_id.strip():
-    st.warning("👈 Enter your Telegram Chat ID in the sidebar to enable Send buttons. Message [@userinfobot](https://t.me/userinfobot) on Telegram to get it instantly.")
 
 if ind is None or dec is None:
     st.error("Not enough data. Run `python scheduler.py --now` first, then refresh.")
@@ -645,8 +630,8 @@ st.markdown(
     "border:2px solid #EAB308;border-radius:8px;text-align:center'>"
     "<strong style='color:#92400E;font-size:0.85rem'>⚠️ DATA SOURCE DISCLAIMER</strong>"
     "<p style='color:#78350F;font-size:0.8rem;margin:0.4rem 0 0'>"
-    "Rates shown are sourced from <strong>Yahoo Finance (USDINR=X)</strong>, not Google Finance. "
-    "Yahoo Finance rates may differ from your transfer service by up to ±0.10–0.15 INR. "
+    "Rates shown are sourced from <strong>Alpha Vantage</strong> (real-time mid-market rate). "
+    "These rates may differ from your transfer service due to spread and fees. "
     "<strong>Always verify the live rate on your transfer service before sending money. "
     "Do your own research.</strong></p></div>",
     unsafe_allow_html=True,
