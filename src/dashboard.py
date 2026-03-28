@@ -26,7 +26,7 @@ st.set_page_config(
     page_title="USD/INR · Rate Predictor",
     page_icon="💹",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown("""
@@ -195,6 +195,9 @@ def get_data():
     return df, df_10d, indicators, decision
 
 df, df_10d, ind, dec = get_data()
+
+if not user_chat_id.strip():
+    st.warning("👈 Enter your Telegram Chat ID in the sidebar to enable Send buttons. Message [@userinfobot](https://t.me/userinfobot) on Telegram to get it instantly.")
 
 if ind is None or dec is None:
     st.error("Not enough data. Run `python scheduler.py --now` first, then refresh.")
