@@ -70,30 +70,50 @@ def init_db() -> None:
 
 def fetch_current_rate() -> float | None:
     """Return the latest USD/INR rate.
-    Primary: open.er-api.com (updates daily at midnight UTC, no API key, closer to live market).
-    Fallback: Yahoo Finance via yfinance.
+    Primary: Alpha Vantage (real-time, free API key, 25 requests/day).
+    Fallback: open.er-api.com (daily update, no key).
     """
     import requests as _req
-    # Primary — open.er-api (free, no key, daily update, accurate mid-market rate)
+
+    # Primary — Alpha Vantage real-time forex rate
+    if config.ALPHAVANTAGE_API_KEY and not config.ALPHAVANTAGE_API_KEY.startswith("your_"):
+        try:
+            url  = (
+                "https://www.alphavantage.co/query"
+                "?function=CURRENCY_EXCHANGE_RATE"
+                "&from_currency=USD&to_currency=INR"
+                f"&apikey={config.ALPHAVANTAGE_API_KEY}"
+            )
+            resp = _req.get(url, timeout=10)
+            data = resp.json().get("Realtime Currency Exchange Rate", {})
+            rate = data.get("5. Exchange Rate")
+            if rate:
+                rate = round(float(rate), 4)
+                logger.info("Current rate fetched (Alpha Vantage): %.4f", rate)
+                return rate
+        except Exception as exc:
+            logger.warning("Alpha Vantage failed, falling back: %s", exc)
+
+    # Fallback — open.er-api (daily, no key)
     try:
         resp = _req.get("https://open.er-api.com/v6/latest/USD", timeout=8)
         if resp.status_code == 200:
             rate = round(float(resp.json()["rates"]["INR"]), 4)
-            logger.info("Current rate fetched (open.er-api): %.4f", rate)
+            logger.info("Current rate fetched (open.er-api fallback): %.4f", rate)
             return rate
     except Exception as exc:
-        logger.warning("open.er-api failed, falling back to yfinance: %s", exc)
+        logger.warning("open.er-api failed: %s", exc)
 
-    # Fallback — Yahoo Finance
+    # Last resort — Yahoo Finance
     try:
         ticker = yf.Ticker(config.TICKER)
         data   = ticker.history(period="1d", interval="1m")
         if not data.empty:
             rate = round(float(data["Close"].iloc[-1]), 4)
-            logger.info("Current rate fetched (yfinance fallback): %.4f", rate)
+            logger.info("Current rate fetched (yfinance last resort): %.4f", rate)
             return rate
     except Exception as exc:
-        logger.error("yfinance fallback also failed: %s", exc)
+        logger.error("All rate sources failed: %s", exc)
 
     return None
 

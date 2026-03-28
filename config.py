@@ -22,7 +22,10 @@ FETCH_INTERVAL_MINUTES  = 15    # Fetch new rate every 15 minutes
 ALERT_INTERVAL_HOURS    = 3     # Send summary alert every 3 hours
 
 # --- Database (loaded from .env) ---
-DATABASE_URL      = os.getenv("DATABASE_URL", "")
+DATABASE_URL          = os.getenv("DATABASE_URL", "")
+
+# --- Alpha Vantage (loaded from .env) ---
+ALPHAVANTAGE_API_KEY  = os.getenv("ALPHAVANTAGE_API_KEY", "")
 
 # --- Data ---
 HISTORY_DAYS      = 90          # Days of historical data to use
