@@ -69,19 +69,33 @@ def init_db() -> None:
 # -----------------------------------------------------------------------------
 
 def fetch_current_rate() -> float | None:
-    """Return the latest USD/INR rate from Yahoo Finance."""
+    """Return the latest USD/INR rate.
+    Primary: open.er-api.com (updates daily at midnight UTC, no API key, closer to live market).
+    Fallback: Yahoo Finance via yfinance.
+    """
+    import requests as _req
+    # Primary — open.er-api (free, no key, daily update, accurate mid-market rate)
+    try:
+        resp = _req.get("https://open.er-api.com/v6/latest/USD", timeout=8)
+        if resp.status_code == 200:
+            rate = round(float(resp.json()["rates"]["INR"]), 4)
+            logger.info("Current rate fetched (open.er-api): %.4f", rate)
+            return rate
+    except Exception as exc:
+        logger.warning("open.er-api failed, falling back to yfinance: %s", exc)
+
+    # Fallback — Yahoo Finance
     try:
         ticker = yf.Ticker(config.TICKER)
         data   = ticker.history(period="1d", interval="1m")
-        if data.empty:
-            logger.warning("Empty response from Yahoo Finance for current rate.")
-            return None
-        rate = round(float(data["Close"].iloc[-1]), 4)
-        logger.info("Current rate fetched: %.4f", rate)
-        return rate
+        if not data.empty:
+            rate = round(float(data["Close"].iloc[-1]), 4)
+            logger.info("Current rate fetched (yfinance fallback): %.4f", rate)
+            return rate
     except Exception as exc:
-        logger.error("Failed to fetch current rate: %s", exc)
-        return None
+        logger.error("yfinance fallback also failed: %s", exc)
+
+    return None
 
 
 def fetch_historical_rates(days: int = config.HISTORY_DAYS) -> pd.DataFrame:
