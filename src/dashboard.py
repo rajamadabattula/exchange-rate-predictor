@@ -191,9 +191,10 @@ def get_data():
     if indicators:
         indicators.dynamic_target = get_daily_target(indicators.ma_48h)
     decision   = decide(indicators) if indicators else None
-    return df, df_10d, indicators, decision
+    last_updated = df_10d["timestamp"].iloc[-1] if not df_10d.empty else None
+    return df, df_10d, indicators, decision, last_updated
 
-df, df_10d, ind, dec = get_data()
+df, df_10d, ind, dec, last_updated = get_data()
 
 if not user_chat_id.strip():
     st.warning("👈 Enter your Telegram Chat ID in the sidebar to enable Send buttons. Message [@userinfobot](https://t.me/userinfobot) on Telegram to get it instantly.")
@@ -219,10 +220,14 @@ delta_color  = "#16A34A" if rate_vs_avg >= 0 else "#DC2626"
 col_left, col_right = st.columns([4, 1])
 
 with col_left:
+    updated_str = (
+        last_updated.strftime("Rate as of %d %b %Y · %H:%M UTC")
+        if last_updated else "Rate as of unknown"
+    )
     st.markdown(
-        '<p style="font-size:0.75rem;color:#9CA3AF;font-weight:600;'
-        'text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.1rem">'
-        'USD / INR &nbsp;·&nbsp; Live Exchange Rate</p>',
+        f'<p style="font-size:0.75rem;color:#9CA3AF;font-weight:600;'
+        f'text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.1rem">'
+        f'USD / INR &nbsp;·&nbsp; {updated_str} &nbsp;·&nbsp; Updates hourly</p>',
         unsafe_allow_html=True,
     )
     st.markdown(
