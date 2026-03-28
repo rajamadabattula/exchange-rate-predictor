@@ -134,7 +134,7 @@ with st.sidebar:
     st.markdown("### 📲 Get Alerts on Your Telegram")
     st.markdown(
         "Follow these 3 steps to receive alerts:\n\n"
-        "**Step 1:** Open Telegram and search for **@usdinr_predictor_bot** — "
+        "**Step 1:** Open Telegram and search for **@Rajam009bot** —"
         "send it any message (e.g. `hi`). This activates your account with the bot.\n\n"
         "**Step 2:** Message [@userinfobot](https://t.me/userinfobot) on Telegram — "
         "it replies instantly with your Chat ID.\n\n"
