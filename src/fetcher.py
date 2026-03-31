@@ -242,18 +242,20 @@ def load_rates(days: int = config.HISTORY_DAYS) -> pd.DataFrame:
 
 
 # -----------------------------------------------------------------------------
-# Daily target — locked once per MST day (resets at midnight MST = 07:00 UTC)
+# Weekly target — locked once per week (resets every Monday midnight MST)
 # -----------------------------------------------------------------------------
 
 def get_daily_target(ma_48h: float) -> float:
     """
-    Return today's target rate. Calculated once at the first run of each MST day
+    Return this week's target rate. Calculated once at the first run of each MST week
     as (48h moving average + 0.5) and stored in the DB.
-    Stays fixed for the rest of the day so the goalpost doesn't move.
-    Resets at midnight MST (07:00 UTC) so it aligns with the user's day.
+    Stays fixed for the entire week — resets Monday midnight MST.
     """
     from datetime import timedelta
-    today = (datetime.now(timezone.utc) - timedelta(hours=7)).strftime("%Y-%m-%d")
+    now_mst  = datetime.now(timezone.utc) - timedelta(hours=7)
+    # Monday of the current MST week (weekday() = 0 for Monday)
+    monday   = now_mst - timedelta(days=now_mst.weekday())
+    today    = monday.strftime("%Y-%m-%d")   # key = Monday date of this week
     conn  = get_conn()
     try:
         cur = conn.cursor()

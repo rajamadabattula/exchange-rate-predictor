@@ -227,7 +227,7 @@ with col_left:
         f'<span style="color:{delta_color};font-weight:600">'
         f'{delta_sign}{rate_vs_avg:.4f}</span>'
         f'&nbsp; vs 24h average &nbsp;·&nbsp; '
-        f'Target: <strong>{ind.dynamic_target:.2f}</strong> <span style="color:#9CA3AF;font-size:0.75rem">(set daily · resets midnight MST)</span>'
+        f'Target: <strong>{ind.dynamic_target:.2f}</strong> <span style="color:#9CA3AF;font-size:0.75rem">(set weekly · resets every Monday)</span>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
@@ -464,7 +464,8 @@ This catches rate peaks that RSI alone might miss.
 ---
 
 **What is the Dynamic Target?**
-Instead of a fixed number, the target updates daily as `48h average rate + 0.5`.
+The target is set once per week as `48h average rate + 0.5` and stays fixed for the full week.
+It resets every Monday so the goalpost doesn't move mid-week.
 Current target: **{ind.dynamic_target:.2f}** (48h avg {ind.ma_48h:.2f} + 0.5)
 
 ---
