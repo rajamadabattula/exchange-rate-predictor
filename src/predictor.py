@@ -48,6 +48,11 @@ class Indicators:
     signal_strength:      int   = 0      # 0–100: how many indicators agree on a drop
     forecast_uncertainty: float = 0.0   # ±1σ of model residuals
     model_used:           str   = ""     # which model won: "GBM" | "Linear" | "ExpSmooth"
+    model_scores:         dict  = None   # {model: holdout_error} for all 3 models
+
+    def __post_init__(self):
+        if self.model_scores is None:
+            self.model_scores = {}
 
 
 # -----------------------------------------------------------------------------
@@ -249,7 +254,7 @@ def _compare_models(series: pd.Series) -> dict[str, float]:
     return errors
 
 
-def forecast_rates(df: pd.DataFrame) -> tuple[float, float, float, float, str]:
+def forecast_rates(df: pd.DataFrame) -> tuple[float, float, float, float, str, dict]:
     """
     Run all 3 models, compare on 24h holdout, use winner for final forecast.
     Returns (predicted_24h, predicted_48h, confidence, uncertainty, model_name).
@@ -258,7 +263,7 @@ def forecast_rates(df: pd.DataFrame) -> tuple[float, float, float, float, str]:
 
     if len(series) < 20:
         last = float(series.iloc[-1])
-        return last, last, 0.0, 0.0, "Linear"
+        return last, last, 0.0, 0.0, "Linear", {}
 
     # ── Compare all models on holdout ────────────────────────────────────────
     errors = _compare_models(series)
@@ -295,7 +300,7 @@ def forecast_rates(df: pd.DataFrame) -> tuple[float, float, float, float, str]:
         pass
 
     uncertainty = round((unc24 + unc48) / 2, 4)
-    return pred24, pred48, 0.0, uncertainty, winner
+    return pred24, pred48, 0.0, uncertainty, winner, errors
 
 
 # -----------------------------------------------------------------------------
@@ -319,7 +324,7 @@ def analyse(df: pd.DataFrame) -> Indicators | None:
     ma_48h       = round(float(series.iloc[-48:].mean()), 4)
     dynamic_target = round(ma_48h + 0.20, 4)
     bb_upper, bb_lower, bb_pct = compute_bollinger(series)
-    pred24, pred48, confidence, uncertainty, model_used = forecast_rates(df)
+    pred24, pred48, confidence, uncertainty, model_used, model_scores = forecast_rates(df)
     strength = compute_signal_strength(rsi, label, bb_pct)
 
     indicators = Indicators(
@@ -339,6 +344,7 @@ def analyse(df: pd.DataFrame) -> Indicators | None:
         signal_strength      = strength,
         forecast_uncertainty = uncertainty,
         model_used           = model_used,
+        model_scores         = model_scores,
     )
     logger.info(
         "Analysis — Rate: %.4f | RSI: %.1f | Trend: %s | BB%%: %.0f%% | "

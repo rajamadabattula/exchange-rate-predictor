@@ -542,7 +542,6 @@ with col_b:
         ("Bollinger Band",   bb_label),
         ("Forecast 24h",     f"{ind.predicted_24h:.4f}  ±{ind.forecast_uncertainty:.4f}"),
         ("Forecast 48h",     f"{ind.predicted_48h:.4f}"),
-        ("Forecast Model",    ind.model_used if ind.model_used else "—"),
         ("Signal Strength",  f"{ind.signal_strength}/100  ({strength_label})"),
     ]
     for label, value in levels:
@@ -553,6 +552,38 @@ with col_b:
             f'</div>',
             unsafe_allow_html=True,
         )
+
+# ── Model Comparison ──────────────────────────────────────────────────────────
+
+st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+st.markdown('<div class="section-title">Forecast Model Comparison · 24h Holdout Error (lower = better)</div>',
+            unsafe_allow_html=True)
+
+if ind.model_scores:
+    scores = ind.model_scores
+    winner = ind.model_used
+    model_labels = {"Linear": "Linear Regression", "GBM": "Gradient Boosting", "ExpSmooth": "Exp Smoothing"}
+    best_error   = min(v for v in scores.values() if v < 999)
+
+    for model_key, label in model_labels.items():
+        error = scores.get(model_key, None)
+        is_winner = model_key == winner
+        if error is None or error >= 999:
+            bar_html = "<span style='color:#9CA3AF'>failed</span>"
+        else:
+            pct   = max(5, min(100, int((1 - error / max(scores.values())) * 100)))
+            color = "#16A34A" if is_winner else "#93C5FD"
+            bar   = f"<div style='background:{color};height:8px;border-radius:4px;width:{pct}%;margin-top:3px'></div>"
+            bar_html = f"<span style='font-weight:{'700' if is_winner else '400'};color:{'#15803D' if is_winner else '#374151'}'>{error:.4f}</span>{' ✓ Active' if is_winner else ''}{bar}"
+
+        st.markdown(
+            f'<div class="kv-row" style="align-items:flex-start;flex-direction:column;gap:2px">'
+            f'<div style="display:flex;justify-content:space-between;width:100%">'
+            f'<span class="kv-key">{label}</span>{bar_html}</div></div>',
+            unsafe_allow_html=True,
+        )
+else:
+    st.caption("Model comparison runs after 100+ data points are available.")
 
 # ── Ask a Question ────────────────────────────────────────────────────────────
 
