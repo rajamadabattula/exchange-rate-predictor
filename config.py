@@ -19,7 +19,7 @@ CLAUDE_MODEL       = "claude-haiku-4-5-20251001"   # fast + cheap for Q&A
 
 # --- Scheduler ---
 FETCH_INTERVAL_MINUTES  = 1     # Fetch new rate every 1 minute
-ALERT_INTERVAL_HOURS    = 3     # Send summary alert every 3 hours
+ALERT_INTERVAL_HOURS    = 1     # Send summary alert every 1 hour
 
 # --- Database (loaded from .env) ---
 DATABASE_URL          = os.getenv("DATABASE_URL", "")

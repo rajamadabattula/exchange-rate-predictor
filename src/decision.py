@@ -112,17 +112,27 @@ def decide(ind: Indicators) -> Decision:
 
     else:
         gap = threshold - rate
-        if pred24 > threshold:
-            outlook = f"Forecast suggests it may reach {pred24:.2f} in 24h — above target. Patience."
-        elif pred48 > threshold:
-            outlook = f"Forecast shows a possible window around {pred48:.2f} in 48h. Hold off for now."
+        # ── Falling trap: rate is heading lower — current rate is the best in 48h ──
+        if trend == "falling" and pred24 < rate and pred48 < rate:
+            summary = (
+                f"Rate {rate:.2f} is {gap:.2f} below target {threshold:.2f}, but the trend is "
+                f"falling and forecasts show further decline "
+                f"(24h: {pred24:.2f}, 48h: {pred48:.2f}). "
+                f"Current rate is the best available in the next 48h. Send now to avoid further loss."
+            )
+            signal = Signal.SEND_NOW
         else:
-            outlook = "No clear target window in the next 48h. Keep monitoring."
-        summary = (
-            f"Rate {rate:.2f} is {gap:.2f} below the dynamic target of {threshold:.2f}. "
-            f"{outlook}"
-        )
-        signal = Signal.WAIT
+            if pred24 > threshold:
+                outlook = f"Forecast suggests it may reach {pred24:.2f} in 24h — above target. Patience."
+            elif pred48 > threshold:
+                outlook = f"Forecast shows a possible window around {pred48:.2f} in 48h. Hold off for now."
+            else:
+                outlook = "No clear target window in the next 48h. Keep monitoring."
+            summary = (
+                f"Rate {rate:.2f} is {gap:.2f} below the dynamic target of {threshold:.2f}. "
+                f"{outlook}"
+            )
+            signal = Signal.WAIT
 
     return Decision(signal=signal, reasons=reasons, summary=summary)
 
@@ -141,24 +151,36 @@ def format_message(decision: Decision, ind: Indicators, is_summary: bool = False
     strength  = ind.signal_strength
     unc       = ind.forecast_uncertainty
 
-    prefix = "📋 *3-Hour Update*\n\n" if is_summary else ""
+    prefix = "📋 *1-Hour Update*\n\n" if is_summary else ""
 
     if decision.signal == Signal.SEND_NOW:
-        if rsi >= 70:
-            reason = f"RSI is at {rsi:.0f} — the rate is overbought and a drop is likely."
-        elif ind.bb_pct >= 1.0:
-            reason = f"The rate is above its Bollinger upper band — statistically extended."
+        if rate < target:
+            # Falling trap — rate won't reach target, send before it falls further
+            msg = (
+                f"{prefix}"
+                f"🟠 *Send now — rate is falling.*\n\n"
+                f"Rate is *{rate:.2f}* — {target - rate:.2f} below your target of {target:.2f}.\n"
+                f"Trend is falling. Forecast: 24h → {pred24:.2f}  |  48h → {pred48:.2f}.\n\n"
+                f"The target is unlikely to be reached. *This is the best rate in the next 48h.*\n"
+                f"Send now to avoid locking in an even lower rate later.\n\n"
+                f"_Forecast → 24h: {pred24:.2f} ±{unc:.2f}  |  48h: {pred48:.2f}_"
+            )
         else:
-            reason = f"Trend is {trend} and {strength}/100 indicators agree this is a peak."
-        msg = (
-            f"{prefix}"
-            f"🟢 *Send your money now.*\n\n"
-            f"The rate is *{rate:.2f}* — above your target of {target:.2f}.\n"
-            f"{reason}\n\n"
-            f"Signal strength: *{strength}/100* ({_strength_label(strength)})\n"
-            f"Lock in this rate before it drops.\n\n"
-            f"_Forecast → 24h: {pred24:.2f} ±{unc:.2f}  |  48h: {pred48:.2f}_"
-        )
+            if rsi >= 70:
+                reason = f"RSI is at {rsi:.0f} — the rate is overbought and a drop is likely."
+            elif ind.bb_pct >= 1.0:
+                reason = f"The rate is above its Bollinger upper band — statistically extended."
+            else:
+                reason = f"Trend is {trend} and {strength}/100 indicators agree this is a peak."
+            msg = (
+                f"{prefix}"
+                f"🟢 *Send your money now.*\n\n"
+                f"The rate is *{rate:.2f}* — above your target of {target:.2f}.\n"
+                f"{reason}\n\n"
+                f"Signal strength: *{strength}/100* ({_strength_label(strength)})\n"
+                f"Lock in this rate before it drops.\n\n"
+                f"_Forecast → 24h: {pred24:.2f} ±{unc:.2f}  |  48h: {pred48:.2f}_"
+            )
 
     elif decision.signal == Signal.MONITOR:
         if rate >= target:
