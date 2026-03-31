@@ -205,10 +205,15 @@ delta_color  = "#16A34A" if rate_vs_avg >= 0 else "#DC2626"
 col_left, col_right = st.columns([4, 1])
 
 with col_left:
-    updated_str = (
-        last_updated.strftime("Rate as of %d %b %Y · %H:%M UTC")
-        if last_updated else "Rate as of unknown"
-    )
+    if last_updated:
+        from datetime import timedelta
+        last_mst = last_updated + timedelta(hours=-7)
+        updated_str = (
+            f"Rate as of {last_mst.strftime('%d %b %Y · %H:%M MST')}"
+            f" / {last_updated.strftime('%H:%M UTC')}"
+        )
+    else:
+        updated_str = "Rate as of unknown"
     st.markdown(
         f'<p style="font-size:0.75rem;color:#9CA3AF;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.1rem">'
