@@ -166,6 +166,13 @@ with st.expander("📲 Get Telegram Alerts — Enter your Chat ID here", expande
         st.success("✅ Ready — Send buttons are active.")
     else:
         st.caption("Your Chat ID is only stored in your browser session — never saved to any database.")
+    st.markdown(
+        "---\n"
+        "**Want your own personal alerts?** This app is open source. "
+        "[Fork the repo on GitHub](https://github.com/rajamadabattula/exchange-rate-predictor) "
+        "→ set up your own Telegram bot (takes ~5 min) → get alerts sent directly to you. "
+        "Free to run on [Streamlit Cloud](https://streamlit.io/cloud)."
+    )
 
 # ── Why this was built ────────────────────────────────────────────────────────
 
@@ -288,16 +295,60 @@ st.markdown(
 
 m1, m2, m3, m4, m5 = st.columns(5)
 
-m1.metric("Dynamic Target", f"{ind.dynamic_target:.2f}",
-          "Above ✓" if ind.current_rate >= ind.dynamic_target else f"Gap: {ind.dynamic_target - ind.current_rate:.2f}")
-m2.metric("RSI · 14",    f"{ind.rsi_14:.0f}",
-          "Overbought" if ind.rsi_14 >= 70 else "Oversold" if ind.rsi_14 <= 30 else "Neutral")
-m3.metric("Trend",       ind.trend_label.capitalize(),
-          f"{ind.trend_slope:+.4f}/hr")
-m4.metric("Forecast 24h", f"{ind.predicted_24h:.2f}",
-          f"±{ind.forecast_uncertainty:.2f} uncertainty")
-m5.metric("Signal Strength", f"{ind.signal_strength}/100",
-          "High" if ind.signal_strength >= 67 else "Medium" if ind.signal_strength >= 34 else "Low")
+m1.metric(
+    "Your Target Rate",
+    f"{ind.dynamic_target:.2f}",
+    "You're above it ✓" if ind.current_rate >= ind.dynamic_target else f"{ind.dynamic_target - ind.current_rate:.2f} away",
+    help=(
+        "The rate you're aiming to hit before sending money. "
+        "Calculated as the 48-hour average + a small buffer — so it stays realistic and moves with the market. "
+        "Resets every Monday."
+    ),
+)
+m2.metric(
+    "Momentum (RSI)",
+    f"{ind.rsi_14:.0f} / 100",
+    "Likely to drop soon" if ind.rsi_14 >= 70 else "Likely to rise soon" if ind.rsi_14 <= 30 else "Normal range",
+    help=(
+        "RSI = Relative Strength Index. Measures how fast the rate has been moving. "
+        "Above 70 → rate rose too fast, likely to drop soon (good time to send). "
+        "Below 30 → rate fell too far, likely to recover (wait). "
+        "30–70 → normal, no strong signal either way."
+    ),
+)
+m3.metric(
+    "Direction",
+    ind.trend_label.capitalize(),
+    f"{'↑ Getting better' if ind.trend_label == 'rising' else '↓ Getting worse' if ind.trend_label == 'falling' else '→ Holding steady'}",
+    help=(
+        "Which direction the rate is moving right now over the last 24 hours. "
+        "Rising = more INR per dollar — better for you. "
+        "Falling = fewer INR per dollar — worse for you. "
+        "Sideways = not moving much."
+    ),
+)
+m4.metric(
+    "Rate in 24 Hours",
+    f"{ind.predicted_24h:.2f}",
+    f"±{ind.forecast_uncertainty:.2f} margin of error",
+    help=(
+        "Where the model predicts the USD/INR rate will be in 24 hours. "
+        f"Could realistically land between {ind.predicted_24h - ind.forecast_uncertainty:.2f} and {ind.predicted_24h + ind.forecast_uncertainty:.2f}. "
+        "Based on recent trend, momentum, and historical patterns."
+    ),
+)
+m5.metric(
+    "How Confident",
+    "High" if ind.signal_strength >= 67 else "Medium" if ind.signal_strength >= 34 else "Low",
+    f"{ind.signal_strength}/100 indicators agree",
+    help=(
+        "How many of the three signals (Momentum, Trend, Bollinger Band) agree with each other. "
+        "High = strong agreement, trust the signal. "
+        "Medium = mixed — proceed with caution. "
+        "Low = signals conflict, harder to predict. "
+        "Bollinger Band measures how far the rate has stretched from its recent average."
+    ),
+)
 
 st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
@@ -598,6 +649,17 @@ if ind.model_scores:
         )
 else:
     st.caption("Model comparison runs after 100+ data points are available.")
+
+st.markdown(
+    "<div style='margin-top:0.75rem;padding:0.75rem 1.1rem;background:#F0F9FF;"
+    "border-left:3px solid #0EA5E9;border-radius:6px;font-size:0.8rem;color:#0C4A6E'>"
+    "📌 <strong>Want your own alerts?</strong> This app is open source — "
+    "<a href='https://github.com/rajamadabattula/exchange-rate-predictor' target='_blank'>fork the repo on GitHub</a>, "
+    "set up your own Telegram bot (5 min), and host it free on "
+    "<a href='https://streamlit.io/cloud' target='_blank'>Streamlit Cloud</a>."
+    "</div>",
+    unsafe_allow_html=True,
+)
 
 # ── Ask a Question ────────────────────────────────────────────────────────────
 
