@@ -227,7 +227,7 @@ with col_left:
         f'<span style="color:{delta_color};font-weight:600">'
         f'{delta_sign}{rate_vs_avg:.4f}</span>'
         f'&nbsp; vs 24h average &nbsp;·&nbsp; '
-        f'Target: <strong>{ind.dynamic_target:.2f}</strong> <span style="color:#9CA3AF;font-size:0.75rem">(set daily · resets midnight UTC)</span>'
+        f'Target: <strong>{ind.dynamic_target:.2f}</strong> <span style="color:#9CA3AF;font-size:0.75rem">(set daily · resets midnight MST)</span>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
