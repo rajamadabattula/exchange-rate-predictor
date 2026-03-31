@@ -227,10 +227,12 @@ col_left, col_right = st.columns([4, 1])
 
 with col_left:
     if last_updated:
-        from datetime import timedelta
-        last_mst = last_updated + timedelta(hours=-7)
+        from zoneinfo import ZoneInfo
+        mountain = ZoneInfo("America/Denver")
+        last_mt = last_updated.replace(tzinfo=timezone.utc).astimezone(mountain)
+        mt_label = last_mt.strftime("%Z")  # MDT or MST automatically
         updated_str = (
-            f"Rate as of {last_mst.strftime('%d %b %Y · %H:%M MST')}"
+            f"Rate as of {last_mt.strftime('%d %b %Y · %H:%M')} {mt_label}"
             f" / {last_updated.strftime('%H:%M UTC')}"
         )
     else:
