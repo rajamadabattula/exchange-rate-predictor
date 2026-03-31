@@ -156,7 +156,7 @@ Why this exists</div>
 <div style="font-size:0.85rem;color:#1E3A5F;line-height:1.7">
 I came from India to the US for my Master's degree. Like most international students, I carry debt
 back home — and every month I face the same question: <em>when do I send money?</em><br><br>
-A week before building this, I sent money at a rate that was <strong>$3 lower</strong> than it
+A week before building this, I sent money at a rate that was <strong>₹3 per dollar lower</strong> than it
 became just days later. That's thousands of rupees lost in a single transfer.
 For someone managing student debt across two currencies, that's not a rounding error —
 <strong>it genuinely hurts.</strong><br><br>
