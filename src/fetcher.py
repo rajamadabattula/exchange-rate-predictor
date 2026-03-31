@@ -70,12 +70,46 @@ def init_db() -> None:
 
 def fetch_current_rate() -> float | None:
     """Return the latest USD/INR rate.
-    Primary: Alpha Vantage (real-time, free API key, 25 requests/day).
-    Fallback: open.er-api.com (daily update, no key).
+    Primary: Google Sheets (=GOOGLEFINANCE, real-time).
+    Fallback 1: Alpha Vantage (25 requests/day).
+    Fallback 2: open.er-api.com (daily, no key).
+    Fallback 3: Yahoo Finance.
     """
     import requests as _req
 
-    # Primary — Alpha Vantage real-time forex rate
+    # Primary — Google Sheets with =GOOGLEFINANCE("CURRENCY:USDINR")
+    if config.GOOGLE_SERVICE_ACCOUNT_JSON and config.GOOGLE_SPREADSHEET_ID:
+        try:
+            import json
+            import gspread
+            from google.oauth2.service_account import Credentials
+            from datetime import timedelta
+
+            creds_dict = json.loads(config.GOOGLE_SERVICE_ACCOUNT_JSON)
+            scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+            creds  = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+            client = gspread.authorize(creds)
+            sheet  = client.open_by_key(config.GOOGLE_SPREADSHEET_ID).sheet1
+            value  = sheet.acell("A1").value
+            if value:
+                rate = round(float(str(value).replace(",", "")), 4)
+                # Write fetch timestamp to B1 (UTC + IST)
+                now_utc = datetime.now(timezone.utc)
+                now_mst = now_utc + timedelta(hours=-7)
+                timestamp = (
+                    f"Fetched: {now_mst.strftime('%d %b %Y %H:%M')} MST"
+                    f"  /  {now_utc.strftime('%d %b %Y %H:%M')} UTC"
+                )
+                try:
+                    sheet.update("B1", [[timestamp]])
+                except Exception:
+                    pass  # write failure doesn't affect rate
+                logger.info("Current rate fetched (Google Sheets): %.4f", rate)
+                return rate
+        except Exception as exc:
+            logger.warning("Google Sheets failed, falling back: %s", exc)
+
+    # Fallback 1 — Alpha Vantage real-time forex rate
     if config.ALPHAVANTAGE_API_KEY and not config.ALPHAVANTAGE_API_KEY.startswith("your_"):
         try:
             url  = (
@@ -94,7 +128,7 @@ def fetch_current_rate() -> float | None:
         except Exception as exc:
             logger.warning("Alpha Vantage failed, falling back: %s", exc)
 
-    # Fallback — open.er-api (daily, no key)
+    # Fallback 2 — open.er-api (daily, no key)
     try:
         resp = _req.get("https://open.er-api.com/v6/latest/USD", timeout=8)
         if resp.status_code == 200:
@@ -104,7 +138,7 @@ def fetch_current_rate() -> float | None:
     except Exception as exc:
         logger.warning("open.er-api failed: %s", exc)
 
-    # Last resort — Yahoo Finance
+    # Fallback 3 — Yahoo Finance
     try:
         ticker = yf.Ticker(config.TICKER)
         data   = ticker.history(period="1d", interval="1m")

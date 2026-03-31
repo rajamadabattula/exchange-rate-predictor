@@ -263,9 +263,9 @@ m2.metric("RSI · 14",    f"{ind.rsi_14:.0f}",
 m3.metric("Trend",       ind.trend_label.capitalize(),
           f"{ind.trend_slope:+.4f}/hr")
 m4.metric("Forecast 24h", f"{ind.predicted_24h:.2f}",
-          f"{ind.predicted_24h - ind.current_rate:+.2f}")
-m5.metric("Forecast 48h", f"{ind.predicted_48h:.2f}",
-          f"{ind.predicted_48h - ind.current_rate:+.2f}")
+          f"±{ind.forecast_uncertainty:.2f} uncertainty")
+m5.metric("Signal Strength", f"{ind.signal_strength}/100",
+          "High" if ind.signal_strength >= 67 else "Medium" if ind.signal_strength >= 34 else "Low")
 
 st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
@@ -437,9 +437,29 @@ Think of it like a rubber band — if stretched too far in one direction, it sna
 
 ---
 
+**What is Signal Strength?**
+Signal Strength (0–100) counts how many indicators agree that the rate is at a peak and likely to drop.
+**SEND NOW only fires when Signal Strength ≥ 50** — meaning at least 2 indicators confirm.
+
+| Score | Label | Meaning |
+|---|---|---|
+| **67–100** | High | RSI + Bollinger + Trend all agree. Strong signal. |
+| **34–66** | Medium | 2 indicators agree. Decent confidence. |
+| **0–33** | Low | Signals mixed. Rate may still rise. |
+
+**Right now:** Signal Strength is `{ind.signal_strength}/100`
+
+---
+
+**What are Bollinger Bands?**
+Bollinger Bands mark the "normal range" for the rate based on the last 20 hours.
+If the rate goes above the upper band, it's statistically extended — more likely to pull back.
+This catches rate peaks that RSI alone might miss.
+
+---
+
 **What is the Dynamic Target?**
-Instead of a fixed number, the target updates every hour as `48h average rate + 0.5`.
-This keeps it relevant — if the market shifts, your target shifts with it.
+Instead of a fixed number, the target updates daily as `48h average rate + 0.5`.
 Current target: **{ind.dynamic_target:.2f}** (48h avg {ind.ma_48h:.2f} + 0.5)
 
 ---
@@ -448,15 +468,22 @@ Current target: **{ind.dynamic_target:.2f}** (48h avg {ind.ma_48h:.2f} + 0.5)
 
 | Signal | Meaning |
 |---|---|
-| 🟢 **SEND NOW** | Rate is above target + conditions suggest it will drop. Lock it in. |
-| 🟡 **MONITOR** | Rate is close to target. Check back in an hour. |
-| ⚪ **WAIT** | Rate is below target or still rising. Hold off. |
+| 🟢 **SEND NOW** | Rate above target AND ≥ 2 indicators agree it's at a peak. |
+| 🟡 **MONITOR** | Rate near/above target but signals are mixed. May still rise. |
+| ⚪ **WAIT** | Rate below target. Not the right time yet. |
+
+---
+
+**⚠️ Model limitation**
+This model uses trend analysis (RSI, Bollinger Bands, linear regression).
+It **cannot predict** news events, RBI/Fed policy changes, or financial year-end effects.
+Always confirm on your transfer service before sending.
 
 ---
 
 **Chart guide**
-- **Blue line** — actual USD/INR rate, hourly
-- **Orange dashed** — predicted rate for next 24h and 48h
+- **Blue line** — actual USD/INR rate, from Google Finance
+- **Orange dashed** — trend-based forecast (±uncertainty shown)
 - **Green dashed line** — your dynamic target. You want the blue line above this.
 """)
 
@@ -482,13 +509,21 @@ with col_a:
 with col_b:
     st.markdown('<div class="section-title">Key Levels</div>', unsafe_allow_html=True)
 
+    bb_label = (
+        "Above upper band" if ind.bb_pct >= 1.0 else
+        f"{ind.bb_pct*100:.0f}% (near upper)" if ind.bb_pct >= 0.8 else
+        f"{ind.bb_pct*100:.0f}% (mid range)" if ind.bb_pct >= 0.5 else
+        f"{ind.bb_pct*100:.0f}% (near lower)"
+    )
+    strength_label = "High" if ind.signal_strength >= 67 else "Medium" if ind.signal_strength >= 34 else "Low"
     levels = [
-        ("Dynamic Target", f"{ind.dynamic_target:.2f}  (48h avg + 0.5)"),
-        ("Current Rate",  f"{ind.current_rate:.4f}"),
-        ("24h Average",   f"{ind.ma_24h:.4f}"),
-        ("Forecast 24h",  f"{ind.predicted_24h:.4f}"),
-        ("Forecast 48h",  f"{ind.predicted_48h:.4f}"),
-        ("Model Fit R²",  f"{ind.confidence:.2f}"),
+        ("Dynamic Target",   f"{ind.dynamic_target:.2f}  (48h avg + 0.5)"),
+        ("Current Rate",     f"{ind.current_rate:.4f}"),
+        ("24h Average",      f"{ind.ma_24h:.4f}"),
+        ("Bollinger Band",   bb_label),
+        ("Forecast 24h",     f"{ind.predicted_24h:.4f}  ±{ind.forecast_uncertainty:.4f}"),
+        ("Forecast 48h",     f"{ind.predicted_48h:.4f}"),
+        ("Signal Strength",  f"{ind.signal_strength}/100  ({strength_label})"),
     ]
     for label, value in levels:
         st.markdown(
@@ -628,11 +663,12 @@ st.markdown(
 st.markdown(
     "<div style='margin-top:0.75rem;padding:0.85rem 1.25rem;background:#FEF9C3;"
     "border:2px solid #EAB308;border-radius:8px;text-align:center'>"
-    "<strong style='color:#92400E;font-size:0.85rem'>⚠️ DATA SOURCE DISCLAIMER</strong>"
+    "<strong style='color:#92400E;font-size:0.85rem'>⚠️ DATA SOURCE &amp; MODEL DISCLAIMER</strong>"
     "<p style='color:#78350F;font-size:0.8rem;margin:0.4rem 0 0'>"
-    "Rates shown are sourced from <strong>Alpha Vantage</strong> (real-time mid-market rate). "
-    "These rates may differ from your transfer service due to spread and fees. "
-    "<strong>Always verify the live rate on your transfer service before sending money. "
+    "Rates are sourced from <strong>Google Finance</strong> via Google Sheets (=GOOGLEFINANCE). "
+    "These are mid-market rates and may differ from your transfer service due to spread and fees. "
+    "Forecasts are <strong>trend-based only</strong> and cannot predict macro events, news, or "
+    "policy changes. <strong>Always verify the live rate on your transfer service before sending. "
     "Do your own research.</strong></p></div>",
     unsafe_allow_html=True,
 )

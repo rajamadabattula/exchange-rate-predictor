@@ -18,7 +18,7 @@ ANTHROPIC_API_KEY  = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL       = "claude-haiku-4-5-20251001"   # fast + cheap for Q&A
 
 # --- Scheduler ---
-FETCH_INTERVAL_MINUTES  = 15    # Fetch new rate every 15 minutes
+FETCH_INTERVAL_MINUTES  = 1     # Fetch new rate every 1 minute
 ALERT_INTERVAL_HOURS    = 3     # Send summary alert every 3 hours
 
 # --- Database (loaded from .env) ---
@@ -26,6 +26,10 @@ DATABASE_URL          = os.getenv("DATABASE_URL", "")
 
 # --- Alpha Vantage (loaded from .env) ---
 ALPHAVANTAGE_API_KEY  = os.getenv("ALPHAVANTAGE_API_KEY", "")
+
+# --- Google Sheets (loaded from .env) ---
+GOOGLE_SPREADSHEET_ID          = os.getenv("GOOGLE_SPREADSHEET_ID", "")
+GOOGLE_SERVICE_ACCOUNT_JSON    = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 
 # --- Data ---
 HISTORY_DAYS      = 90          # Days of historical data to use

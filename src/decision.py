@@ -1,5 +1,11 @@
 """
 decision.py — Combines indicators into a clear SEND / WAIT signal with reasoning.
+
+Signal Strength gate:
+  SEND NOW  requires rate >= target AND signal_strength >= 50
+            (at least 2 indicators agree the rate is at a peak)
+  MONITOR   rate near target, or rate above target but signals still mixed
+  WAIT      rate below target — no point sending yet
 """
 
 from dataclasses import dataclass
@@ -25,80 +31,98 @@ class Decision:
     summary: str
 
 
+def _bb_label(bb_pct: float) -> str:
+    if bb_pct >= 1.0:   return "Above upper band — statistically extended"
+    if bb_pct >= 0.8:   return f"{bb_pct*100:.0f}% — approaching upper band"
+    if bb_pct >= 0.5:   return f"{bb_pct*100:.0f}% — mid range"
+    return f"{bb_pct*100:.0f}% — near lower band"
+
+
+def _strength_label(s: int) -> str:
+    if s >= 67:  return "High"
+    if s >= 34:  return "Medium"
+    return "Low"
+
+
 def decide(ind: Indicators) -> Decision:
     """
-    Uses a dynamic target (48h average + 0.5) instead of a fixed threshold.
-    This keeps the target relevant as the market moves.
+    Uses a dynamic target (48h average + 0.5).
+    Requires signal_strength ≥ 50 (≥ 2 indicators) before firing SEND NOW.
     """
     rate      = ind.current_rate
     rsi       = ind.rsi_14
     trend     = ind.trend_label
     pred24    = ind.predicted_24h
-    threshold = ind.dynamic_target          # ← dynamic, updates every hour
+    pred48    = ind.predicted_48h
+    threshold = ind.dynamic_target
+    strength  = ind.signal_strength
+    unc       = ind.forecast_uncertainty
     reasons: list[str] = []
 
     # ── Context lines shown in dashboard ──────────────────────────────────────
-    reasons.append(f"Current rate   : {rate:.4f} INR/USD")
-    reasons.append(f"Dynamic target : {threshold:.4f}  (48h avg {ind.ma_48h:.4f} + 0.5)")
-    reasons.append(f"RSI (14)       : {rsi:.1f}  {'Overbought' if rsi >= config.RSI_OVERBOUGHT else 'Normal' if rsi > config.RSI_OVERSOLD else 'Oversold'}")
-    reasons.append(f"Trend          : {trend.capitalize()} ({ind.trend_slope:+.5f}/hr)")
-    reasons.append(f"Forecast 24h   : {pred24:.4f}  (R²={ind.confidence:.2f})")
-    reasons.append(f"Forecast 48h   : {ind.predicted_48h:.4f}")
+    reasons.append(f"Current rate    : {rate:.4f} INR/USD")
+    reasons.append(f"Dynamic target  : {threshold:.4f}  (48h avg {ind.ma_48h:.4f} + 0.5)")
+    reasons.append(f"RSI (14)        : {rsi:.1f}  {'Overbought ↓' if rsi >= config.RSI_OVERBOUGHT else 'Normal' if rsi > config.RSI_OVERSOLD else 'Oversold ↑'}")
+    reasons.append(f"Trend           : {trend.capitalize()} ({ind.trend_slope:+.5f}/hr)")
+    reasons.append(f"Bollinger Band  : {_bb_label(ind.bb_pct)}")
+    reasons.append(f"Signal Strength : {strength}/100  ({_strength_label(strength)})")
+    reasons.append(f"Forecast 24h    : {pred24:.4f}  (±{unc:.4f})")
+    reasons.append(f"Forecast 48h    : {pred48:.4f}")
 
     # ── Decision logic ────────────────────────────────────────────────────────
     if rate >= threshold:
-        drop_predicted = pred24 < rate - 0.10
+        if strength >= 50:
+            # Multiple indicators agree the rate is at or near a peak
+            if rsi >= config.RSI_OVERBOUGHT and trend == "falling":
+                summary = (
+                    f"Rate {rate:.2f} is above target {threshold:.2f}. RSI overbought ({rsi:.0f}) "
+                    f"and trend is falling — multiple signals confirm this is a peak. Send now."
+                )
+            elif ind.bb_pct >= 1.0:
+                summary = (
+                    f"Rate {rate:.2f} is above target {threshold:.2f} and above the Bollinger upper band "
+                    f"— statistically extended. Signal strength {strength}/100. Good time to send."
+                )
+            elif rsi >= config.RSI_OVERBOUGHT:
+                summary = (
+                    f"Rate {rate:.2f} is above target {threshold:.2f}. RSI ({rsi:.0f}) is overbought "
+                    f"and {strength}/100 signals agree. A correction is likely. Send now."
+                )
+            else:
+                summary = (
+                    f"Rate {rate:.2f} is above target {threshold:.2f}. "
+                    f"{strength}/100 signal strength — conditions favour sending now."
+                )
+            signal = Signal.SEND_NOW
 
-        if rsi >= config.RSI_OVERBOUGHT and trend == "falling":
-            signal  = Signal.SEND_NOW
-            summary = (
-                f"Rate {rate:.2f} is above target {threshold:.2f}. RSI overbought ({rsi:.0f}) "
-                f"and trend is falling — high chance of a drop. Send now."
-            )
-        elif rsi >= config.RSI_OVERBOUGHT:
-            signal  = Signal.SEND_NOW
-            summary = (
-                f"Rate {rate:.2f} is above target {threshold:.2f}. RSI ({rsi:.0f}) signals "
-                f"overbought conditions — a correction is likely. Good time to send."
-            )
-        elif drop_predicted and trend == "falling":
-            signal  = Signal.SEND_NOW
-            summary = (
-                f"Rate {rate:.2f} is above target {threshold:.2f}. Forecast drops to "
-                f"{pred24:.2f} in 24h. Lock in this rate now."
-            )
-        elif trend == "sideways":
-            signal  = Signal.SEND_NOW
-            summary = (
-                f"Rate {rate:.2f} is above target {threshold:.2f} and moving sideways. "
-                f"No strong upside expected. Safe to send now."
-            )
-        elif trend == "rising" and rsi < 60:
-            signal  = Signal.WAIT
-            summary = (
-                f"Rate {rate:.2f} is above target {threshold:.2f} but still rising "
-                f"with RSI room ({rsi:.0f}). Forecast: {pred24:.2f} in 24h. "
-                f"Consider waiting for a better rate."
-            )
         else:
-            signal  = Signal.SEND_NOW
+            # Rate is above target but signals are mixed — market still has momentum
             summary = (
-                f"Rate {rate:.2f} is above target {threshold:.2f}. Conditions acceptable. Send now."
+                f"Rate {rate:.2f} is above target {threshold:.2f} but signals are mixed "
+                f"(strength {strength}/100). The rate may still rise. Monitor closely."
             )
+            signal = Signal.MONITOR
 
     elif rate >= threshold - 0.5:
-        signal  = Signal.MONITOR
         summary = (
-            f"Rate {rate:.2f} is close to target {threshold:.2f}. "
-            f"Forecast 24h: {pred24:.2f}. Watch closely."
+            f"Rate {rate:.2f} is close to target {threshold:.2f} "
+            f"({threshold - rate:.2f} away). Forecast 24h: {pred24:.2f}. Watch closely."
         )
+        signal = Signal.MONITOR
+
     else:
-        gap    = threshold - rate
-        signal = Signal.WAIT
+        gap = threshold - rate
+        if pred24 > threshold:
+            outlook = f"Forecast suggests it may reach {pred24:.2f} in 24h — above target. Patience."
+        elif pred48 > threshold:
+            outlook = f"Forecast shows a possible window around {pred48:.2f} in 48h. Hold off for now."
+        else:
+            outlook = "No clear target window in the next 48h. Keep monitoring."
         summary = (
             f"Rate {rate:.2f} is {gap:.2f} below the dynamic target of {threshold:.2f}. "
-            f"Forecast 24h: {pred24:.2f}. Wait for a better window."
+            f"{outlook}"
         )
+        signal = Signal.WAIT
 
     return Decision(signal=signal, reasons=reasons, summary=summary)
 
@@ -108,55 +132,65 @@ def format_message(decision: Decision, ind: Indicators, is_summary: bool = False
     from datetime import datetime, timezone
     time_str = datetime.now(timezone.utc).strftime("%b %d · %H:%M UTC")
 
-    rate    = ind.current_rate
-    target  = ind.dynamic_target
-    pred24  = ind.predicted_24h
-    pred48  = ind.predicted_48h
-    rsi     = ind.rsi_14
-    trend   = ind.trend_label
+    rate      = ind.current_rate
+    target    = ind.dynamic_target
+    pred24    = ind.predicted_24h
+    pred48    = ind.predicted_48h
+    rsi       = ind.rsi_14
+    trend     = ind.trend_label
+    strength  = ind.signal_strength
+    unc       = ind.forecast_uncertainty
 
     prefix = "📋 *3-Hour Update*\n\n" if is_summary else ""
 
     if decision.signal == Signal.SEND_NOW:
-        rsi_note = (
-            f"RSI is at {rsi:.0f} — the rate is overbought and a drop is likely."
-            if rsi >= 70 else
-            f"The trend is turning and forecast shows a dip to {pred24:.2f} in 24h."
-        )
+        if rsi >= 70:
+            reason = f"RSI is at {rsi:.0f} — the rate is overbought and a drop is likely."
+        elif ind.bb_pct >= 1.0:
+            reason = f"The rate is above its Bollinger upper band — statistically extended."
+        else:
+            reason = f"Trend is {trend} and {strength}/100 indicators agree this is a peak."
         msg = (
             f"{prefix}"
             f"🟢 *Send your money now.*\n\n"
             f"The rate is *{rate:.2f}* — above your target of {target:.2f}.\n"
-            f"{rsi_note}\n\n"
+            f"{reason}\n\n"
+            f"Signal strength: *{strength}/100* ({_strength_label(strength)})\n"
             f"Lock in this rate before it drops.\n\n"
-            f"_Forecast → 24h: {pred24:.2f}  |  48h: {pred48:.2f}_"
+            f"_Forecast → 24h: {pred24:.2f} ±{unc:.2f}  |  48h: {pred48:.2f}_"
         )
 
     elif decision.signal == Signal.MONITOR:
+        if rate >= target:
+            note = f"Rate is above target but signals are mixed ({strength}/100). May still rise."
+        else:
+            note = f"Rate is {target - rate:.2f} below target. Getting closer."
         msg = (
             f"{prefix}"
-            f"🟡 *Almost there — stay close.*\n\n"
-            f"Rate is *{rate:.2f}*, just {target - rate:.2f} below your target of {target:.2f}.\n"
-            f"Forecast shows it could reach {pred24:.2f} in the next 24 hours.\n\n"
-            f"Don't send yet — check back soon.\n\n"
-            f"_Forecast → 24h: {pred24:.2f}  |  48h: {pred48:.2f}_"
+            f"🟡 *Watch closely.*\n\n"
+            f"Rate is *{rate:.2f}*, target is {target:.2f}.\n"
+            f"{note}\n\n"
+            f"_Forecast → 24h: {pred24:.2f} ±{unc:.2f}  |  48h: {pred48:.2f}_"
         )
 
     else:  # WAIT
         if pred24 > target:
-            outlook = f"Good news — it's predicted to hit {pred24:.2f} in 24h, which is above your target. Patience."
+            outlook = f"Forecast shows it may reach {pred24:.2f} in 24h — above target. Patience."
         elif pred48 > target:
-            outlook = f"It may reach {pred48:.2f} in 48h. Hold off for now."
+            outlook = f"A window may open around {pred48:.2f} in 48h. Hold off for now."
         else:
-            outlook = f"No strong target window in the next 48h. Keep monitoring."
-
+            outlook = "No strong window in the next 48h. Keep monitoring."
         msg = (
             f"{prefix}"
             f"🔴 *Don't send yet.*\n\n"
             f"Rate is *{rate:.2f}* — {target - rate:.2f} below your target of {target:.2f}.\n"
             f"Trend is {trend}, RSI is {rsi:.0f}.\n\n"
             f"{outlook}\n\n"
-            f"_Forecast → 24h: {pred24:.2f}  |  48h: {pred48:.2f}_"
+            f"_Forecast → 24h: {pred24:.2f} ±{unc:.2f}  |  48h: {pred48:.2f}_"
         )
 
-    return msg + f"\n\n_Checked at {time_str}_"
+    return (
+        msg
+        + f"\n\n_Checked at {time_str}_"
+        + "\n\n⚠️ _Trend-based model only. Cannot predict news or policy events._"
+    )

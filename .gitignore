@@ -1,5 +1,8 @@
 # Credentials — never commit
 .env
+main-guild-*.json
+encode_creds.py
+fix_env.py
 
 # Claude Code
 CLAUDE.md
