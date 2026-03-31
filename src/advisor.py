@@ -110,6 +110,20 @@ def send_in_one_hour(ind: Indicators) -> tuple[str, str, str]:
                 f"Rate is *{rate:.2f}* — above target {target:.2f}.\n"
                 f"No strong reason to wait."
             )
+    elif trend == "falling" and pred_1h < rate and ind.predicted_24h < rate:
+        gap     = round(target - rate, 2)
+        verdict = "yes"
+        fallback_answer = (
+            f"**Yes — send within the hour.**\n\n"
+            f"Rate is **{rate:.2f}** ({gap} below target) but it's falling — "
+            f"forecast in 1h is ~{pred_1h:.2f}, dropping further to {ind.predicted_24h:.2f} in 24h. "
+            f"The target isn't coming. This is the best rate you'll see. Send now."
+        )
+        tg = (
+            f"🟠 *Send within the hour — rate is falling.*\n\n"
+            f"Rate *{rate:.2f}* | 1h forecast: ~{pred_1h:.2f}\n"
+            f"Target {target:.2f} is unlikely. Lock in now before it drops further."
+        )
     else:
         gap     = round(target - rate, 2)
         verdict = "no"
@@ -182,6 +196,20 @@ def send_tomorrow(ind: Indicators) -> tuple[str, str, str]:
             f"🟡 *Tomorrow could work.*\n\n"
             f"Forecast: *{pred24:.2f}* in 24h — above target {target:.2f}.\n"
             f"Watch the rate today and decide."
+        )
+    elif trend == "falling" and pred24 < rate and pred48 < rate:
+        verdict = "now"
+        fallback_answer = (
+            f"**Send today — tomorrow will be worse.**\n\n"
+            f"Rate is {rate:.2f} now and falling — forecast drops to {pred24:.2f} in 24h "
+            f"and {pred48:.2f} in 48h. "
+            f"Neither day reaches your target of {target:.2f}, but today is the best of the three. "
+            f"Don't wait."
+        )
+        tg = (
+            f"🟠 *Send today — tomorrow will be worse.*\n\n"
+            f"Rate *{rate:.2f}* → forecast *{pred24:.2f}* (24h) · *{pred48:.2f}* (48h)\n"
+            f"Falling trend. Today is the best available rate."
         )
     else:
         verdict = "no"
@@ -268,6 +296,20 @@ def best_time_to_send(ind: Indicators) -> tuple[str, str, str]:
             f"🟡 *Best window: 24–48 hours out.*\n\n"
             f"Forecast 48h: *{pred48:.2f}* — above target {target:.2f}.\n"
             f"Hold off. Alert will fire when the time comes."
+        )
+    elif trend == "falling" and pred24 < rate and pred48 < rate:
+        verdict = "now"
+        fallback_answer = (
+            f"**Best time: right now.**\n\n"
+            f"Rate is {rate:.2f} — below your target of {target:.2f}, but it's falling. "
+            f"Forecast: {pred24:.2f} in 24h and {pred48:.2f} in 48h. "
+            f"The target isn't reachable. Today's rate is the best in the 48h window. Send now."
+        )
+        tg = (
+            f"🟠 *Best time: right now.*\n\n"
+            f"Rate *{rate:.2f}* | Target {target:.2f} — unlikely to be reached.\n"
+            f"Forecast: *{pred24:.2f}* (24h) · *{pred48:.2f}* (48h)\n"
+            f"Rate is falling. Now is better than later."
         )
     else:
         verdict = "no"
