@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
@@ -28,6 +29,14 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+# ── Auto-refresh every 60 seconds — fetches live rate each cycle ───────────────
+_refresh_count = st_autorefresh(interval=60_000, key="rate_auto_refresh")
+if _refresh_count > 0:
+    _rate = fetch_current_rate()
+    if _rate:
+        save_current_rate(_rate)
+    st.cache_data.clear()
 
 st.markdown("""
 <style>
