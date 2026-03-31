@@ -13,7 +13,7 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
-from src.fetcher   import bootstrap, load_rates, get_daily_target
+from src.fetcher   import bootstrap, load_rates, get_daily_target, fetch_current_rate, save_current_rate
 from src.predictor import analyse
 from src.decision  import decide, format_message, Signal
 from src.alerter   import send_message
@@ -235,6 +235,10 @@ with col_left:
 with col_right:
     st.markdown("<div style='height:1.6rem'></div>", unsafe_allow_html=True)
     if st.button("↺ Refresh", use_container_width=True):
+        with st.spinner("Fetching latest rate..."):
+            rate = fetch_current_rate()
+            if rate:
+                save_current_rate(rate)
         st.cache_data.clear()
         st.rerun()
     st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
