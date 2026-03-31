@@ -226,7 +226,7 @@ with col_left:
     st.markdown(
         f'<p style="font-size:0.75rem;color:#9CA3AF;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.1rem">'
-        f'USD / INR &nbsp;·&nbsp; {updated_str} &nbsp;·&nbsp; Updates every hour</p>',
+        f'USD / INR &nbsp;·&nbsp; {updated_str} &nbsp;·&nbsp; Live · auto-refreshes every minute</p>',
         unsafe_allow_html=True,
     )
     st.markdown(
