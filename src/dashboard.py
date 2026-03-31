@@ -464,9 +464,9 @@ This catches rate peaks that RSI alone might miss.
 ---
 
 **What is the Dynamic Target?**
-The target is set once per week as `48h average rate + 0.5` and stays fixed for the full week.
+The target is set once per week as `48h average rate + 0.20` and stays fixed for the full week.
 It resets every Monday so the goalpost doesn't move mid-week.
-Current target: **{ind.dynamic_target:.2f}** (48h avg {ind.ma_48h:.2f} + 0.5)
+Current target: **{ind.dynamic_target:.2f}** (48h avg {ind.ma_48h:.2f} + 0.20)
 
 ---
 
@@ -523,7 +523,7 @@ with col_b:
     )
     strength_label = "High" if ind.signal_strength >= 67 else "Medium" if ind.signal_strength >= 34 else "Low"
     levels = [
-        ("Dynamic Target",   f"{ind.dynamic_target:.2f}  (48h avg + 0.5)"),
+        ("Dynamic Target",   f"{ind.dynamic_target:.2f}  (48h avg + 0.20)"),
         ("Current Rate",     f"{ind.current_rate:.4f}"),
         ("24h Average",      f"{ind.ma_24h:.4f}"),
         ("Bollinger Band",   bb_label),
@@ -661,7 +661,7 @@ st.markdown(
     f"<div style='font-size:0.72rem;color:#D1D5DB;text-align:center;"
     f"padding-top:1rem;border-top:1px solid #F3F4F6'>"
     f"Updated {datetime.now(timezone.utc).strftime('%d %b %Y · %H:%M UTC')}"
-    f" &nbsp;·&nbsp; Target = 48h avg + 0.5 &nbsp;·&nbsp; Not financial advice"
+    f" &nbsp;·&nbsp; Target = 48h avg + 0.20 &nbsp;·&nbsp; Not financial advice"
     f"</div>",
     unsafe_allow_html=True,
 )

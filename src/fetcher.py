@@ -264,7 +264,7 @@ def get_daily_target(ma_48h: float) -> float:
         if row:
             return round(row[0], 4)
         # First run today — calculate and store
-        target = round(ma_48h + 0.5, 4)
+        target = round(ma_48h + 0.20, 4)
         cur.execute(
             "INSERT INTO daily_targets (date, target) VALUES (%s, %s) ON CONFLICT DO NOTHING",
             (today, target)

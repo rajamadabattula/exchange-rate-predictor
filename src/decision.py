@@ -46,7 +46,7 @@ def _strength_label(s: int) -> str:
 
 def decide(ind: Indicators) -> Decision:
     """
-    Uses a dynamic target (48h average + 0.5).
+    Uses a dynamic target (48h average + 0.20).
     Requires signal_strength ≥ 50 (≥ 2 indicators) before firing SEND NOW.
     """
     rate      = ind.current_rate
@@ -61,7 +61,7 @@ def decide(ind: Indicators) -> Decision:
 
     # ── Context lines shown in dashboard ──────────────────────────────────────
     reasons.append(f"Current rate    : {rate:.4f} INR/USD")
-    reasons.append(f"Dynamic target  : {threshold:.4f}  (48h avg {ind.ma_48h:.4f} + 0.5)")
+    reasons.append(f"Dynamic target  : {threshold:.4f}  (48h avg {ind.ma_48h:.4f} + 0.20)")
     reasons.append(f"RSI (14)        : {rsi:.1f}  {'Overbought ↓' if rsi >= config.RSI_OVERBOUGHT else 'Normal' if rsi > config.RSI_OVERSOLD else 'Oversold ↑'}")
     reasons.append(f"Trend           : {trend.capitalize()} ({ind.trend_slope:+.5f}/hr)")
     reasons.append(f"Bollinger Band  : {_bb_label(ind.bb_pct)}")
