@@ -14,7 +14,7 @@ from streamlit_autorefresh import st_autorefresh
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
-from src.fetcher   import bootstrap, load_rates, get_daily_target, fetch_current_rate, save_current_rate
+from src.fetcher   import bootstrap, load_rates, get_weekly_target, fetch_current_rate, save_current_rate
 from src.predictor import analyse
 from src.decision  import decide, format_message, Signal
 from src.alerter   import send_message
@@ -185,7 +185,7 @@ def get_data():
     df         = load_rates(days=3)    # 72 hours for chart display
     indicators = analyse(df_10d)       # analyse on full 10d for better indicators
     if indicators:
-        indicators.dynamic_target = get_daily_target(indicators.ma_48h)
+        indicators.dynamic_target = get_weekly_target(indicators.ma_48h)
     decision   = decide(indicators) if indicators else None
     last_updated = df_10d["timestamp"].iloc[-1] if not df_10d.empty else None
     return df, df_10d, indicators, decision, last_updated

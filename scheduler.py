@@ -16,7 +16,7 @@ from pathlib import Path
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 import config
-from src.fetcher   import bootstrap, fetch_current_rate, save_current_rate, load_rates, get_daily_target
+from src.fetcher   import bootstrap, fetch_current_rate, save_current_rate, load_rates, get_weekly_target
 from src.predictor import analyse
 from src.decision  import decide, format_message
 from src.alerter   import send_message, should_send_alert, record_alert, get_chat_id
@@ -61,7 +61,7 @@ def run_check() -> None:
         logger.warning("Skipping this cycle — insufficient data for analysis.")
         return
     # Lock target to once-per-day so the goalpost doesn't chase the rate
-    indicators.dynamic_target = get_daily_target(indicators.ma_48h)
+    indicators.dynamic_target = get_weekly_target(indicators.ma_48h)
 
     # 3. Make a decision
     decision = decide(indicators)

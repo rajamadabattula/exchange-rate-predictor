@@ -245,10 +245,10 @@ def load_rates(days: int = config.HISTORY_DAYS) -> pd.DataFrame:
 # Weekly target — locked once per week (resets every Monday midnight MST)
 # -----------------------------------------------------------------------------
 
-def get_daily_target(ma_48h: float) -> float:
+def get_weekly_target(ma_48h: float) -> float:
     """
     Return this week's target rate. Calculated once at the first run of each MST week
-    as (48h moving average + 0.5) and stored in the DB.
+    as (48h moving average + 0.20) and stored in the DB.
     Stays fixed for the entire week — resets Monday midnight MST.
     """
     from datetime import timedelta
