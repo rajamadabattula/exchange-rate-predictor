@@ -542,6 +542,7 @@ with col_b:
         ("Bollinger Band",   bb_label),
         ("Forecast 24h",     f"{ind.predicted_24h:.4f}  ±{ind.forecast_uncertainty:.4f}"),
         ("Forecast 48h",     f"{ind.predicted_48h:.4f}"),
+        ("Forecast Model",    ind.model_used if ind.model_used else "—"),
         ("Signal Strength",  f"{ind.signal_strength}/100  ({strength_label})"),
     ]
     for label, value in levels:

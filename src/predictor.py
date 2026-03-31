@@ -1,15 +1,22 @@
 """
 predictor.py — Computes RSI, Bollinger Bands, trend, signal strength,
-               and a 48-hour linear forecast from historical USD/INR rate data.
+               and a 48-hour forecast using the best of 3 models:
+               1. Linear Regression (baseline)
+               2. Gradient Boosting with feature engineering (GBM)
+               3. Exponential Smoothing (Holt-Winters)
+
+Models are compared on a 24h holdout every run. The winner is used
+for the actual forecast. All model predictions are logged for comparison.
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import GradientBoostingRegressor
 
 import sys
 import os
@@ -31,25 +38,26 @@ class Indicators:
     trend_label:          str            # "rising" | "falling" | "sideways"
     ma_24h:               float          # 24-hour moving average
     ma_48h:               float          # 48-hour moving average
-    dynamic_target:       float          # 48h average + 0.5 — updates every hour
+    dynamic_target:       float          # 48h average + 0.20 — weekly lock
     predicted_24h:        float          # Predicted rate 24 hours from now
     predicted_48h:        float          # Predicted rate 48 hours from now
-    confidence:           float          # R² of the linear regression (0–1)
+    confidence:           float          # Reserved (model score)
     bb_upper:             float = 0.0    # Bollinger upper band (20-period, 2σ)
     bb_lower:             float = 0.0    # Bollinger lower band
     bb_pct:               float = 0.5    # 0 = at lower band, 1 = at upper, >1 = above
     signal_strength:      int   = 0      # 0–100: how many indicators agree on a drop
-    forecast_uncertainty: float = 0.0   # ±1σ of regression residuals
+    forecast_uncertainty: float = 0.0   # ±1σ of model residuals
+    model_used:           str   = ""     # which model won: "GBM" | "Linear" | "ExpSmooth"
 
 
 # -----------------------------------------------------------------------------
-# Indicators
+# Technical indicators
 # -----------------------------------------------------------------------------
 
 def compute_rsi(series: pd.Series, period: int = 14) -> float:
     """Compute RSI for the last `period` data points."""
     if len(series) < period + 1:
-        return 50.0  # Not enough data — neutral
+        return 50.0
     delta    = series.diff().dropna()
     gain     = delta.clip(lower=0)
     loss     = (-delta).clip(lower=0)
@@ -58,37 +66,22 @@ def compute_rsi(series: pd.Series, period: int = 14) -> float:
     if avg_loss == 0:
         return 100.0
     rs  = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return round(float(rsi), 2)
+    return round(float(100 - (100 / (1 + rs))), 2)
 
 
 def compute_trend(series: pd.Series, window: int = 24) -> tuple[float, str]:
-    """
-    Fit a linear regression over the last `window` points.
-    Returns (slope_per_hour, label).
-    """
+    """Fit linear regression over last `window` points. Returns (slope, label)."""
     data = series.iloc[-window:].reset_index(drop=True)
     if len(data) < 4:
         return 0.0, "sideways"
-    X = np.arange(len(data)).reshape(-1, 1)
-    y = data.values
-    model = LinearRegression().fit(X, y)
-    slope = float(model.coef_[0])
-    if slope > 0.005:
-        label = "rising"
-    elif slope < -0.005:
-        label = "falling"
-    else:
-        label = "sideways"
+    X     = np.arange(len(data)).reshape(-1, 1)
+    slope = float(LinearRegression().fit(X, data.values).coef_[0])
+    label = "rising" if slope > 0.005 else "falling" if slope < -0.005 else "sideways"
     return round(slope, 6), label
 
 
 def compute_bollinger(series: pd.Series, window: int = 20) -> tuple[float, float, float]:
-    """
-    Compute Bollinger Bands (20-period, 2 standard deviations).
-    Returns (upper_band, lower_band, pct_b).
-    pct_b: 0 = at lower band, 1 = at upper band, >1 = above upper band.
-    """
+    """Bollinger Bands (20-period, 2σ). Returns (upper, lower, pct_b)."""
     if len(series) < window:
         mid = float(series.mean())
         return round(mid, 4), round(mid, 4), 0.5
@@ -97,25 +90,13 @@ def compute_bollinger(series: pd.Series, window: int = 20) -> tuple[float, float
     std    = float(recent.std())
     upper  = round(mid + 2 * std, 4)
     lower  = round(mid - 2 * std, 4)
-    curr   = float(series.iloc[-1])
     band   = upper - lower
-    pct    = round((curr - lower) / band, 4) if band > 0 else 0.5
+    pct    = round((float(series.iloc[-1]) - lower) / band, 4) if band > 0 else 0.5
     return upper, lower, pct
 
 
 def compute_signal_strength(rsi: float, trend: str, bb_pct: float) -> int:
-    """
-    Score 0–100 indicating how strongly multiple indicators agree that
-    the rate is at a peak and likely to drop (SEND NOW confidence).
-
-    Requires ≥2 signals to reach 50+ (the SEND NOW threshold):
-      RSI ≥ 70          → +35 (overbought)
-      RSI 60–70         → +15
-      BB ≥ upper band   → +35 (statistically extended)
-      BB 80–100%        → +15
-      Trend falling     → +30
-      Trend sideways    → +15
-    """
+    """Score 0–100: how many indicators agree the rate is at a peak."""
     score = 0
     if rsi >= 70:              score += 35
     elif rsi >= 60:            score += 15
@@ -126,29 +107,195 @@ def compute_signal_strength(rsi: float, trend: str, bb_pct: float) -> int:
     return min(score, 100)
 
 
-def forecast_rates(df: pd.DataFrame, hours_ahead: int = config.FORECAST_HOURS) -> tuple[float, float, float, float]:
-    """
-    Use linear regression on the last 7 days (168 hours) of data
-    to forecast the rate at +24h and +48h from now.
+# -----------------------------------------------------------------------------
+# Feature engineering
+# -----------------------------------------------------------------------------
 
-    Returns (predicted_24h, predicted_48h, r_squared, uncertainty).
-    uncertainty = ±1σ of regression residuals (realistic error range).
+def _build_features(series: pd.Series) -> pd.DataFrame:
     """
-    window = min(168, len(df))
-    data   = df["rate"].iloc[-window:].reset_index(drop=True)
+    Build ML feature matrix from rate series.
+    All features use past data only (shift ≥ 1) to avoid leakage.
+    """
+    s = series.reset_index(drop=True)
+    df = pd.DataFrame()
+
+    n = len(s)
+    # Only include lags where we'll still have 50+ training samples after dropna
+    for lag in [1, 2, 3, 6, 12, 24, 48, 168]:
+        if n > lag + 50:
+            df[f"lag_{lag}h"] = s.shift(lag)
+
+    # Rolling statistics — trend and volatility
+    df["roll_mean_6h"]  = s.shift(1).rolling(6,  min_periods=3).mean()
+    df["roll_mean_24h"] = s.shift(1).rolling(24, min_periods=12).mean()
+    df["roll_std_24h"]  = s.shift(1).rolling(24, min_periods=12).std()
+    df["roll_std_6h"]   = s.shift(1).rolling(6,  min_periods=3).std()
+
+    # Momentum — rate of change
+    df["roc_1h"]  = s.diff(1)
+    df["roc_6h"]  = s.diff(6)
+    df["roc_24h"] = s.diff(24)
+
+    return df
+
+
+# -----------------------------------------------------------------------------
+# Individual model forecasters
+# -----------------------------------------------------------------------------
+
+def _linear_forecast(series: pd.Series, hours: int) -> tuple[float, float]:
+    """Linear regression on last 168h. Returns (prediction, uncertainty)."""
+    data = series.iloc[-168:].reset_index(drop=True) if len(series) >= 168 else series.reset_index(drop=True)
     if len(data) < 12:
-        last = float(data.iloc[-1])
-        return last, last, 0.0, 0.0
-    X = np.arange(len(data)).reshape(-1, 1)
-    y = data.values
-    model       = LinearRegression().fit(X, y)
-    r2          = float(model.score(X, y))
-    n           = len(data)
-    pred24      = float(model.predict([[n + 23]])[0])
-    pred48      = float(model.predict([[n + 47]])[0])
-    residuals   = y - model.predict(X).flatten()
-    uncertainty = float(np.std(residuals))
-    return round(pred24, 4), round(pred48, 4), round(r2, 4), round(uncertainty, 4)
+        return round(float(series.iloc[-1]), 4), 0.0
+    X         = np.arange(len(data)).reshape(-1, 1)
+    y         = data.values
+    model     = LinearRegression().fit(X, y)
+    pred      = float(model.predict([[len(data) + hours - 1]])[0])
+    unc       = float(np.std(y - model.predict(X).flatten()))
+    return round(pred, 4), round(unc, 4)
+
+
+def _gbm_forecast(series: pd.Series, hours: int) -> tuple[float, float]:
+    """
+    Gradient Boosting with lag/rolling features.
+    Trains a direct model to predict `hours` ahead.
+    Returns (prediction, uncertainty).
+    """
+    features = _build_features(series)
+    features["target"] = series.reset_index(drop=True).shift(-hours)
+    features = features.dropna()
+
+    if len(features) < 50:
+        return round(float(series.iloc[-1]), 4), 0.0
+
+    X = features.drop(columns=["target"]).values
+    y = features["target"].values
+
+    model = GradientBoostingRegressor(
+        n_estimators=100, max_depth=4,
+        learning_rate=0.1, subsample=0.8,
+        random_state=42, n_iter_no_change=10,
+    )
+    model.fit(X, y)
+
+    residuals = y - model.predict(X)
+    unc       = float(np.std(residuals))
+
+    # Predict from latest known features (fill any NaN from short lags)
+    latest = _build_features(series).iloc[[-1]].ffill().fillna(0)
+    pred   = float(model.predict(latest.values)[0])
+
+    return round(pred, 4), round(unc, 4)
+
+
+def _exp_smoothing_forecast(series: pd.Series, hours: int) -> tuple[float, float]:
+    """
+    Holt-Winters Exponential Smoothing with additive trend and damping.
+    Returns (prediction, uncertainty).
+    """
+    try:
+        from statsmodels.tsa.holtwinters import ExponentialSmoothing
+        data  = series.iloc[-168:] if len(series) >= 168 else series
+        model = ExponentialSmoothing(
+            data.values,
+            trend="add",
+            damped_trend=True,
+        ).fit(optimized=True)
+        pred  = float(model.forecast(hours)[-1])
+        unc   = float(np.std(data.values - model.fittedvalues))
+        return round(pred, 4), round(unc, 4)
+    except Exception as exc:
+        logger.warning("ExpSmoothing failed: %s", exc)
+        return round(float(series.iloc[-1]), 4), 0.0
+
+
+# -----------------------------------------------------------------------------
+# Model comparison + selection
+# -----------------------------------------------------------------------------
+
+def _compare_models(series: pd.Series) -> dict[str, float]:
+    """
+    Quick holdout: train on all but last 24h, predict 24h ahead, measure error.
+    Returns {model_name: absolute_error}.
+    """
+    if len(series) < 100:
+        return {}
+
+    holdout   = 24
+    train     = series.iloc[:-holdout]
+    actual_24 = float(series.iloc[-holdout])
+
+    errors: dict[str, float] = {}
+
+    try:
+        pred, _ = _linear_forecast(train, 24)
+        errors["Linear"] = round(abs(pred - actual_24), 4)
+    except Exception:
+        errors["Linear"] = 999.0
+
+    try:
+        pred, _ = _gbm_forecast(train, 24)
+        errors["GBM"] = round(abs(pred - actual_24), 4)
+    except Exception:
+        errors["GBM"] = 999.0
+
+    try:
+        pred, _ = _exp_smoothing_forecast(train, 24)
+        errors["ExpSmooth"] = round(abs(pred - actual_24), 4)
+    except Exception:
+        errors["ExpSmooth"] = 999.0
+
+    return errors
+
+
+def forecast_rates(df: pd.DataFrame) -> tuple[float, float, float, float, str]:
+    """
+    Run all 3 models, compare on 24h holdout, use winner for final forecast.
+    Returns (predicted_24h, predicted_48h, confidence, uncertainty, model_name).
+    """
+    series = df["rate"]
+
+    if len(series) < 20:
+        last = float(series.iloc[-1])
+        return last, last, 0.0, 0.0, "Linear"
+
+    # ── Compare all models on holdout ────────────────────────────────────────
+    errors = _compare_models(series)
+    if errors:
+        winner = min(errors, key=lambda k: errors[k])
+        logger.info(
+            "MODEL COMPARISON (24h holdout error) → Linear: %.4f | GBM: %.4f | ExpSmooth: %.4f | Winner: %s",
+            errors.get("Linear", 999), errors.get("GBM", 999), errors.get("ExpSmooth", 999), winner,
+        )
+    else:
+        winner = "GBM"
+
+    # ── Forecast with winner on full series ──────────────────────────────────
+    if winner == "GBM":
+        pred24, unc24 = _gbm_forecast(series, 24)
+        pred48, unc48 = _gbm_forecast(series, 48)
+    elif winner == "ExpSmooth":
+        pred24, unc24 = _exp_smoothing_forecast(series, 24)
+        pred48, unc48 = _exp_smoothing_forecast(series, 48)
+    else:
+        pred24, unc24 = _linear_forecast(series, 24)
+        pred48, unc48 = _linear_forecast(series, 48)
+
+    # Also log all 3 predictions for full visibility
+    try:
+        lin24, _  = _linear_forecast(series, 24)
+        gbm24, _  = _gbm_forecast(series, 24)
+        exp24, _  = _exp_smoothing_forecast(series, 24)
+        logger.info(
+            "ALL MODEL FORECASTS (24h) → Linear: %.4f | GBM: %.4f | ExpSmooth: %.4f | Using: %s=%.4f",
+            lin24, gbm24, exp24, winner, pred24,
+        )
+    except Exception:
+        pass
+
+    uncertainty = round((unc24 + unc48) / 2, 4)
+    return pred24, pred48, 0.0, uncertainty, winner
 
 
 # -----------------------------------------------------------------------------
@@ -170,9 +317,9 @@ def analyse(df: pd.DataFrame) -> Indicators | None:
     slope, label = compute_trend(series)
     ma_24h       = round(float(series.iloc[-24:].mean()), 4)
     ma_48h       = round(float(series.iloc[-48:].mean()), 4)
-    dynamic_target = round(ma_48h + 0.5, 4)
+    dynamic_target = round(ma_48h + 0.20, 4)
     bb_upper, bb_lower, bb_pct = compute_bollinger(series)
-    pred24, pred48, confidence, uncertainty = forecast_rates(df)
+    pred24, pred48, confidence, uncertainty, model_used = forecast_rates(df)
     strength = compute_signal_strength(rsi, label, bb_pct)
 
     indicators = Indicators(
@@ -191,12 +338,13 @@ def analyse(df: pd.DataFrame) -> Indicators | None:
         bb_pct               = bb_pct,
         signal_strength      = strength,
         forecast_uncertainty = uncertainty,
+        model_used           = model_used,
     )
     logger.info(
         "Analysis — Rate: %.4f | RSI: %.1f | Trend: %s | BB%%: %.0f%% | "
-        "Signal: %d/100 | Pred24h: %.4f (±%.4f)",
+        "Signal: %d/100 | Model: %s | Pred24h: %.4f (±%.4f)",
         current_rate, rsi, label, bb_pct * 100,
-        strength, pred24, uncertainty,
+        strength, model_used, pred24, uncertainty,
     )
     return indicators
 
@@ -207,4 +355,6 @@ if __name__ == "__main__":
     df = load_rates()
     result = analyse(df)
     if result:
-        print(result)
+        print(f"\nModel used: {result.model_used}")
+        print(f"Forecast 24h: {result.predicted_24h} (±{result.forecast_uncertainty})")
+        print(f"Forecast 48h: {result.predicted_48h}")
