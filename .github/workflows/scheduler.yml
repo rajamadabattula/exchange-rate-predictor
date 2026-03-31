@@ -2,7 +2,7 @@ name: Rate Check
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 min (GitHub Actions minimum)
+    - cron: '0 * * * *'   # every hour (~720 min/month, within free tier limit)
   workflow_dispatch:           # allow manual trigger from GitHub UI
 
 jobs:
