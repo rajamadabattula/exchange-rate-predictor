@@ -12,14 +12,26 @@ import plotly.graph_objects as go
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_here = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.dirname(_here)
+sys.path.insert(0, _root)
+sys.path.insert(0, _here)
+
 import config
-from src.fetcher   import bootstrap, load_rates, get_weekly_target, fetch_current_rate, save_current_rate
-from src.predictor import analyse
-from src.decision  import decide, format_message, Signal
-from src.alerter   import send_message
-from src.advisor   import send_in_one_hour, send_tomorrow, best_time_to_send
-from src.accuracy  import compute_accuracy
+try:
+    from src.fetcher   import bootstrap, load_rates, get_weekly_target, fetch_current_rate, save_current_rate
+    from src.predictor import analyse
+    from src.decision  import decide, format_message, Signal
+    from src.alerter   import send_message
+    from src.advisor   import send_in_one_hour, send_tomorrow, best_time_to_send
+    from src.accuracy  import compute_accuracy
+except ImportError:
+    from fetcher   import bootstrap, load_rates, get_weekly_target, fetch_current_rate, save_current_rate
+    from predictor import analyse
+    from decision  import decide, format_message, Signal
+    from alerter   import send_message
+    from advisor   import send_in_one_hour, send_tomorrow, best_time_to_send
+    from accuracy  import compute_accuracy
 
 # ── Page config ───────────────────────────────────────────────────────────────
 
