@@ -194,6 +194,51 @@ def _gbm_forecast(series: pd.Series, hours: int) -> tuple[float, float]:
     return round(pred, 4), round(unc, 4)
 
 
+def _ppp_forecast(series: pd.Series, hours: int) -> tuple[float, float]:
+    """
+    Purchasing Power Parity (relative PPP) forecast.
+    Projects the expected rate drift from the inflation differential between
+    India and the US.  Higher Indian inflation → INR depreciates at that rate.
+    """
+    current = float(series.iloc[-1])
+    annual_depreciation = (config.INDIA_INFLATION_RATE - config.US_INFLATION_RATE) / 100
+    pred = current * (1 + annual_depreciation) ** (hours / 8760)
+    unc  = float(series.iloc[-24:].std()) if len(series) >= 24 else 0.0
+    return round(pred, 4), round(unc, 4)
+
+
+def _relative_strength_forecast(series: pd.Series, hours: int) -> tuple[float, float]:
+    """
+    Relative Economic Strength / Covered Interest Rate Parity forecast.
+    The higher-yield currency (INR) depreciates at the interest-rate differential
+    to prevent risk-free arbitrage.
+    """
+    current = float(series.iloc[-1])
+    rate_differential = (config.INDIA_INTEREST_RATE - config.US_INTEREST_RATE) / 100
+    pred = current * (1 + rate_differential) ** (hours / 8760)
+    unc  = float(series.iloc[-24:].std()) if len(series) >= 24 else 0.0
+    return round(pred, 4), round(unc, 4)
+
+
+def _arima_forecast(series: pd.Series, hours: int) -> tuple[float, float]:
+    """
+    ARIMA(1,1,1) econometric model.
+    Differenced (d=1) for non-stationarity, with AR and MA terms.
+    """
+    try:
+        from statsmodels.tsa.arima.model import ARIMA
+        data = series.iloc[-168:] if len(series) >= 168 else series
+        if len(data) < 24:
+            return round(float(series.iloc[-1]), 4), 0.0
+        model = ARIMA(data.values, order=(1, 1, 1)).fit()
+        pred  = float(model.forecast(steps=hours)[-1])
+        unc   = float(np.std(model.resid))
+        return round(pred, 4), round(unc, 4)
+    except Exception as exc:
+        logger.warning("ARIMA failed: %s", exc)
+        return round(float(series.iloc[-1]), 4), 0.0
+
+
 def _exp_smoothing_forecast(series: pd.Series, hours: int) -> tuple[float, float]:
     """
     Holt-Winters Exponential Smoothing with additive trend and damping.
@@ -233,23 +278,19 @@ def _compare_models(series: pd.Series) -> dict[str, float]:
 
     errors: dict[str, float] = {}
 
-    try:
-        pred, _ = _linear_forecast(train, 24)
-        errors["Linear"] = round(abs(pred - actual_24), 4)
-    except Exception:
-        errors["Linear"] = 999.0
-
-    try:
-        pred, _ = _gbm_forecast(train, 24)
-        errors["GBM"] = round(abs(pred - actual_24), 4)
-    except Exception:
-        errors["GBM"] = 999.0
-
-    try:
-        pred, _ = _exp_smoothing_forecast(train, 24)
-        errors["ExpSmooth"] = round(abs(pred - actual_24), 4)
-    except Exception:
-        errors["ExpSmooth"] = 999.0
+    for name, fn in [
+        ("Linear",      _linear_forecast),
+        ("GBM",         _gbm_forecast),
+        ("ExpSmooth",   _exp_smoothing_forecast),
+        ("PPP",         _ppp_forecast),
+        ("RelStrength", _relative_strength_forecast),
+        ("ARIMA",       _arima_forecast),
+    ]:
+        try:
+            pred, _ = fn(train, 24)
+            errors[name] = round(abs(pred - actual_24), 4)
+        except Exception:
+            errors[name] = 999.0
 
     return errors
 
@@ -270,31 +311,36 @@ def forecast_rates(df: pd.DataFrame) -> tuple[float, float, float, float, str, d
     if errors:
         winner = min(errors, key=lambda k: errors[k])
         logger.info(
-            "MODEL COMPARISON (24h holdout error) → Linear: %.4f | GBM: %.4f | ExpSmooth: %.4f | Winner: %s",
-            errors.get("Linear", 999), errors.get("GBM", 999), errors.get("ExpSmooth", 999), winner,
+            "MODEL COMPARISON (24h holdout error) → Linear: %.4f | GBM: %.4f | ExpSmooth: %.4f | "
+            "PPP: %.4f | RelStrength: %.4f | ARIMA: %.4f | Winner: %s",
+            errors.get("Linear", 999), errors.get("GBM", 999), errors.get("ExpSmooth", 999),
+            errors.get("PPP", 999), errors.get("RelStrength", 999), errors.get("ARIMA", 999), winner,
         )
     else:
         winner = "GBM"
 
     # ── Forecast with winner on full series ──────────────────────────────────
-    if winner == "GBM":
-        pred24, unc24 = _gbm_forecast(series, 24)
-        pred48, unc48 = _gbm_forecast(series, 48)
-    elif winner == "ExpSmooth":
-        pred24, unc24 = _exp_smoothing_forecast(series, 24)
-        pred48, unc48 = _exp_smoothing_forecast(series, 48)
-    else:
-        pred24, unc24 = _linear_forecast(series, 24)
-        pred48, unc48 = _linear_forecast(series, 48)
+    _model_fn_map = {
+        "Linear":      _linear_forecast,
+        "GBM":         _gbm_forecast,
+        "ExpSmooth":   _exp_smoothing_forecast,
+        "PPP":         _ppp_forecast,
+        "RelStrength": _relative_strength_forecast,
+        "ARIMA":       _arima_forecast,
+    }
+    fn = _model_fn_map.get(winner, _linear_forecast)
+    pred24, unc24 = fn(series, 24)
+    pred48, unc48 = fn(series, 48)
 
-    # Also log all 3 predictions for full visibility
+    # Also log all 6 predictions for full visibility
     try:
-        lin24, _  = _linear_forecast(series, 24)
-        gbm24, _  = _gbm_forecast(series, 24)
-        exp24, _  = _exp_smoothing_forecast(series, 24)
+        forecasts = {name: _model_fn_map[name](series, 24)[0] for name in _model_fn_map}
         logger.info(
-            "ALL MODEL FORECASTS (24h) → Linear: %.4f | GBM: %.4f | ExpSmooth: %.4f | Using: %s=%.4f",
-            lin24, gbm24, exp24, winner, pred24,
+            "ALL MODEL FORECASTS (24h) → Linear: %.4f | GBM: %.4f | ExpSmooth: %.4f | "
+            "PPP: %.4f | RelStrength: %.4f | ARIMA: %.4f | Using: %s=%.4f",
+            forecasts["Linear"], forecasts["GBM"], forecasts["ExpSmooth"],
+            forecasts["PPP"], forecasts["RelStrength"], forecasts["ARIMA"],
+            winner, pred24,
         )
     except Exception:
         pass

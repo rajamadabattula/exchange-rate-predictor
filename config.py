@@ -40,3 +40,9 @@ LOG_PATH          = "logs/exchange.log"
 # --- Signal Thresholds ---
 RSI_OVERBOUGHT    = 70          # RSI above this = likely to drop
 RSI_OVERSOLD      = 30          # RSI below this = likely to rise
+
+# --- Economic Parameters (update a few times per year as conditions change) ---
+US_INTEREST_RATE     = 4.33    # Fed funds effective rate (%)
+INDIA_INTEREST_RATE  = 6.25    # RBI repo rate (%)
+US_INFLATION_RATE    = 2.8     # US annual CPI (%)
+INDIA_INFLATION_RATE = 4.9     # India annual CPI (%)
