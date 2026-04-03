@@ -151,7 +151,7 @@ st.markdown("""
 
 # ── Telegram setup — always visible on main page ──────────────────────────────
 
-with st.expander("📲 Get Telegram Alerts — Enter your Chat ID here", expanded=True):
+with st.expander("📲 Get Telegram Alerts — Enter your Chat ID here", expanded=False):
     st.markdown(
         "**Step 1:** Search **@Rajam009bot** on Telegram → send it `hi` (activates the bot for you)\n\n"
         "**Step 2:** Message [@userinfobot](https://t.me/userinfobot) on Telegram → it replies with your Chat ID\n\n"
