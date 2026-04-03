@@ -2,8 +2,8 @@
 decision.py — Combines indicators into a clear SEND / WAIT signal with reasoning.
 
 Signal Strength gate:
-  SEND NOW  requires rate >= target AND signal_strength >= 50
-            (at least 2 indicators agree the rate is at a peak)
+  SEND NOW  requires rate >= target AND signal_strength >= 35
+            (at least 1 indicator agrees the rate is at a peak)
   MONITOR   rate near target, or rate above target but signals still mixed
   WAIT      rate below target — no point sending yet
 """
@@ -46,8 +46,8 @@ def _strength_label(s: int) -> str:
 
 def decide(ind: Indicators) -> Decision:
     """
-    Uses a dynamic target (75th percentile of last 72h rates).
-    Requires signal_strength ≥ 50 (≥ 2 indicators) before firing SEND NOW.
+    Uses a dynamic target (85th percentile of last 72h rates).
+    Requires signal_strength ≥ 35 (≥ 1 indicator) before firing SEND NOW.
     """
     rate      = ind.current_rate
     rsi       = ind.rsi_14
@@ -71,7 +71,7 @@ def decide(ind: Indicators) -> Decision:
 
     # ── Decision logic ────────────────────────────────────────────────────────
     if rate >= threshold:
-        if strength >= 50:
+        if strength >= 35:
             # Multiple indicators agree the rate is at or near a peak
             if rsi >= config.RSI_OVERBOUGHT and trend == "falling":
                 summary = (
@@ -99,7 +99,7 @@ def decide(ind: Indicators) -> Decision:
             # Rate is above target but signals are mixed — market still has momentum
             summary = (
                 f"Rate {rate:.2f} is above target {threshold:.2f} but signals are mixed "
-                f"(strength {strength}/100). The rate may still rise. Monitor closely."
+                f"(strength {strength}/100 — needs 35+ to confirm). The rate may still rise. Monitor closely."
             )
             signal = Signal.MONITOR
 
