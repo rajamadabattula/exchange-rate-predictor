@@ -19,14 +19,14 @@ sys.path.insert(0, _here)
 
 import config
 try:
-    from src.fetcher   import bootstrap, load_rates, get_weekly_target, fetch_current_rate, save_current_rate
+    from src.fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate
     from src.predictor import analyse
     from src.decision  import decide, format_message, Signal
     from src.alerter   import send_message
     from src.advisor   import send_in_one_hour, send_tomorrow, best_time_to_send
     from src.accuracy  import compute_accuracy
 except ImportError:
-    from fetcher   import bootstrap, load_rates, get_weekly_target, fetch_current_rate, save_current_rate
+    from fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate
     from predictor import analyse
     from decision  import decide, format_message, Signal
     from alerter   import send_message
@@ -203,8 +203,6 @@ def get_data():
     df_10d     = load_rates(days=10)   # 10 days for y-axis floor calculation
     df         = load_rates(days=3)    # 72 hours for chart display
     indicators = analyse(df_10d)       # analyse on full 10d for better indicators
-    if indicators:
-        indicators.dynamic_target = get_weekly_target(indicators.ma_48h)
     decision   = decide(indicators) if indicators else None
     last_updated = df_10d["timestamp"].iloc[-1] if not df_10d.empty else None
     return df, df_10d, indicators, decision, last_updated

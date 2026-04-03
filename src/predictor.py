@@ -38,7 +38,7 @@ class Indicators:
     trend_label:          str            # "rising" | "falling" | "sideways"
     ma_24h:               float          # 24-hour moving average
     ma_48h:               float          # 48-hour moving average
-    dynamic_target:       float          # 48h average + 0.20 — weekly lock
+    dynamic_target:       float          # 75th percentile of last 72h rates
     predicted_24h:        float          # Predicted rate 24 hours from now
     predicted_48h:        float          # Predicted rate 48 hours from now
     confidence:           float          # Reserved (model score)
@@ -368,7 +368,10 @@ def analyse(df: pd.DataFrame) -> Indicators | None:
     slope, label = compute_trend(series)
     ma_24h       = round(float(series.iloc[-24:].mean()), 4)
     ma_48h       = round(float(series.iloc[-48:].mean()), 4)
-    dynamic_target = round(ma_48h + 0.20, 4)
+    # 75th percentile of the last 72h — "top 25% of recent rates"
+    # Self-adjusting, no weekly lock, fires when rate is genuinely high lately
+    series_72h     = series.iloc[-72:] if len(series) >= 72 else series
+    dynamic_target = round(float(np.percentile(series_72h, 75)), 4)
     bb_upper, bb_lower, bb_pct = compute_bollinger(series)
     pred24, pred48, confidence, uncertainty, model_used, model_scores = forecast_rates(df)
     strength = compute_signal_strength(rsi, label, bb_pct)

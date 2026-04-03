@@ -32,8 +32,8 @@ Built for myself. Useful for every international student sending money home.
 Most exchange rate tools show you a chart and leave you to figure it out. This one tells you what to do.
 
 - Fetches **live USD/INR data** from Google Finance (via Google Sheets `=GOOGLEFINANCE`) — real-time, every minute
-- Computes a **weekly target** that locks in every Monday (48h average + 0.20) so the goalpost doesn't move mid-week
-- **Three forecast models** compete every run — Linear Regression, Gradient Boosting, and Exponential Smoothing — the most accurate one wins
+- Computes a **rolling target** — 75th percentile of the last 72 hours — so it's always calibrated to recent price action, not a stale weekly lock
+- **Six forecast models** compete every run — Linear Regression, Gradient Boosting, Exponential Smoothing, ARIMA, Purchasing Power Parity, and Relative Economic Strength — the most accurate one wins
 - Requires **≥ 2 technical indicators to agree** before firing SEND NOW — no false signals from a single condition
 - Sends a **Telegram alert** the moment it's a good time to send — written as a personal advisor, not a data dump
 - Tracks its own **prediction accuracy** over time so you know how much to trust it
@@ -59,7 +59,7 @@ Yahoo Finance (yfinance)                            ← Last resort
         ▼
   predictor.py        ← RSI (14), Bollinger Bands (20-period),
         │               trend slope, Signal Strength (0–100),
-        │               multi-model forecast: Linear / GBM / ExpSmooth
+        │               multi-model forecast: Linear / GBM / ExpSmooth / ARIMA / PPP / RelStrength
         ▼
   decision.py         ← SEND NOW / MONITOR / WAIT
                         (requires rate ≥ target AND signal strength ≥ 50)
@@ -81,9 +81,9 @@ advisor.py          ← Q&A: send in 1hr / tomorrow / best time
 ## Technical Highlights
 
 - **Real-time Google Finance rate** — Google Sheets `=GOOGLEFINANCE("CURRENCY:USDINR")` gives the same rate as Google Search, updated every minute
-- **Multi-model forecasting with auto-selection** — Linear Regression, Gradient Boosting (with lag/rolling features), and Exponential Smoothing are compared on a 24h holdout every run; the winner is used automatically
+- **6-model forecasting with auto-selection** — Linear Regression, Gradient Boosting, Exponential Smoothing, ARIMA, Purchasing Power Parity, and Relative Economic Strength are compared on a 24h holdout every run; the winner is used automatically
 - **Signal Strength gate** — SEND NOW only fires when ≥ 2 of: RSI overbought, Bollinger Band extended, trend falling
-- **Weekly target lock** — target set every Monday, stays fixed all week so you know exactly what you're aiming for
+- **Rolling 72h target** — 75th percentile of the last 72 hours, updates every run, always calibrated to recent price action
 - **Cloud-native, zero maintenance** — GitHub Actions runs hourly; Streamlit Community Cloud hosts the dashboard; Supabase stores all data
 - **Closed-loop accuracy tracking** — predictions are stored and scored against real outcomes
 - **Alert deduplication** — fires immediately on signal change + 3-hour periodic summaries; no spam
@@ -99,7 +99,7 @@ advisor.py          ← Q&A: send in 1hr / tomorrow / best time
 | Primary data source | Google Sheets (`=GOOGLEFINANCE`) |
 | Fallback sources | Alpha Vantage → open.er-api.com → Yahoo Finance (yfinance) |
 | Storage | PostgreSQL on Supabase |
-| Forecast models | `scikit-learn` GradientBoosting + LinearRegression, `statsmodels` ExponentialSmoothing |
+| Forecast models | `scikit-learn` GradientBoosting + LinearRegression, `statsmodels` ExponentialSmoothing + ARIMA, PPP, Relative Econ Strength |
 | Technical indicators | RSI (14), Bollinger Bands (20-period, 2σ), linear trend slope |
 | Scheduling | GitHub Actions (hourly) + Streamlit auto-refresh (every minute) |
 | Alerts | `python-telegram-bot` |
@@ -110,11 +110,11 @@ advisor.py          ← Q&A: send in 1hr / tomorrow / best time
 
 ## How the Signal Works
 
-### Weekly Target
+### Dynamic Target
 ```
-Target = 48h moving average + 0.20
+Target = 75th percentile of the last 72 hours of rates
 ```
-Set every Monday. Stays fixed for the full week. Resets next Monday midnight MST.
+Updates every run. "Send when the rate is in the top 25% of the last 3 days." No weekly lock — always calibrated to current market conditions.
 
 ### Signal Strength (0–100)
 Three indicators vote. Each contributes points toward a 0–100 score:
@@ -139,15 +139,18 @@ Three indicators vote. Each contributes points toward a 0–100 score:
 | Rate below target | **WAIT** |
 
 ### Forecast Models
-Every run, all three models are trained and evaluated on the last 24 hours of actual data:
+Every run, all six models are trained and evaluated on the last 24 hours of actual data:
 
 | Model | Approach |
 |---|---|
 | **Gradient Boosting** | Lag features (1h, 2h, 3h, 6h, 12h, 24h, 48h), rolling mean/std, momentum |
 | **Exponential Smoothing** | Holt-Winters with additive trend and damping |
 | **Linear Regression** | Trend extrapolation on last 7 days |
+| **ARIMA(1,1,1)** | Differenced autoregressive econometric model |
+| **Purchasing Power Parity** | Inflation differential (India CPI − US CPI) projected forward |
+| **Relative Economic Strength** | Interest rate parity (RBI repo − Fed funds rate) projected forward |
 
-The model with the lowest 24h holdout error is used for that run's forecast. The dashboard shows all three scores so you can see which is winning.
+The model with the lowest 24h holdout error is used for that run's forecast. The dashboard shows all six scores so you can see which is winning.
 
 ---
 
@@ -161,7 +164,7 @@ The model with the lowest 24h holdout error is used for that run's forecast. The
 | 72h area chart | Smooth spline, 48h forecast with ±uncertainty, target line, range slider |
 | Signal Strength metric | 0–100 score showing how many indicators agree |
 | Bollinger Band position | Where rate sits within its statistical normal range |
-| Model comparison | All 3 model errors shown with visual bars — active model highlighted green |
+| Model comparison | All 6 model errors shown with visual bars — active model highlighted green |
 | 3-button advisor | Ask: send in an hour / tomorrow / best time — with Send to Telegram |
 | Accuracy tracker | Mean absolute error (24h/48h), % within ±0.5, SEND NOW accuracy |
 | Explainer panel | Expandable guide: RSI, Bollinger Bands, Signal Strength, target |
@@ -262,12 +265,16 @@ python -m streamlit run src/dashboard.py
 | `FORECAST_HOURS` | 48 | Prediction horizon |
 | `RSI_OVERBOUGHT` | 70 | RSI threshold for overbought signal |
 | `RSI_OVERSOLD` | 30 | RSI threshold for oversold signal |
+| `US_INTEREST_RATE` | 4.33 | Fed funds effective rate (%) — update periodically |
+| `INDIA_INTEREST_RATE` | 6.25 | RBI repo rate (%) — update periodically |
+| `US_INFLATION_RATE` | 2.8 | US annual CPI (%) — update periodically |
+| `INDIA_INFLATION_RATE` | 4.9 | India annual CPI (%) — update periodically |
 
 ---
 
 ## Known Limitations
 
-- **Trend-based models only** — Linear Regression, Gradient Boosting, and Exponential Smoothing capture price patterns but cannot predict macro events: RBI/Fed policy decisions, geopolitical news, or financial year-end effects. These cause sudden rate moves that no technical model can reliably forecast.
+- **Model limits** — all six models (technical, econometric, and parity-based) capture different aspects of rate behaviour but cannot predict macro events: RBI/Fed policy decisions, geopolitical news, or financial year-end effects. These cause sudden rate moves that no model can reliably forecast.
 - **Mid-market rates** — Google Finance and all fallback sources show the mid-market rate. Actual transfer rates from providers include a spread. Always verify on your transfer service before sending.
 - **GitHub Actions cron delays** — GitHub's free tier may delay hourly runs by a few minutes during peak usage. The dashboard auto-refresh (every 60 seconds) is unaffected.
 
