@@ -628,7 +628,14 @@ st.markdown('<div class="section-title">Forecast Model Comparison · 24h Holdout
 if ind.model_scores:
     scores = ind.model_scores
     winner = ind.model_used
-    model_labels = {"Linear": "Linear Regression", "GBM": "Gradient Boosting", "ExpSmooth": "Exp Smoothing"}
+    model_labels = {
+        "Linear":      "Linear Regression",
+        "GBM":         "Gradient Boosting",
+        "ExpSmooth":   "Exp Smoothing",
+        "PPP":         "Purchasing Power Parity",
+        "RelStrength": "Relative Econ Strength",
+        "ARIMA":       "ARIMA (Econometric)",
+    }
     best_error   = min(v for v in scores.values() if v < 999)
 
     for model_key, label in model_labels.items():
