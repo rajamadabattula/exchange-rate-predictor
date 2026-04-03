@@ -636,18 +636,18 @@ if ind.model_scores:
         "RelStrength": "Relative Econ Strength",
         "ARIMA":       "ARIMA (Econometric)",
     }
-    best_error   = min(v for v in scores.values() if v < 999)
+    valid_errors = {k: v for k, v in scores.items() if v < 999}
+    worst_valid  = max(valid_errors.values()) if valid_errors else 1.0
 
     for model_key, label in model_labels.items():
         error = scores.get(model_key, None)
-        is_winner = model_key == winner
         if error is None or error >= 999:
-            bar_html = "<span style='color:#9CA3AF'>failed</span>"
-        else:
-            pct   = max(5, min(100, int((1 - error / max(scores.values())) * 100)))
-            color = "#16A34A" if is_winner else "#93C5FD"
-            bar   = f"<div style='background:{color};height:8px;border-radius:4px;width:{pct}%;margin-top:3px'></div>"
-            bar_html = f"<span style='font-weight:{'700' if is_winner else '400'};color:{'#15803D' if is_winner else '#374151'}'>{error:.4f}</span>{' ✓ Active' if is_winner else ''}{bar}"
+            continue  # skip failed models entirely
+        is_winner = model_key == winner
+        pct   = max(5, min(100, int((1 - error / worst_valid) * 100)))
+        color = "#16A34A" if is_winner else "#93C5FD"
+        bar   = f"<div style='background:{color};height:8px;border-radius:4px;width:{pct}%;margin-top:3px'></div>"
+        bar_html = f"<span style='font-weight:{'700' if is_winner else '400'};color:{'#15803D' if is_winner else '#374151'}'>{error:.4f}</span>{' ✓ Active' if is_winner else ''}{bar}"
 
         st.markdown(
             f'<div class="kv-row" style="align-items:flex-start;flex-direction:column;gap:2px">'
