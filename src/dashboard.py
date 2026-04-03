@@ -363,7 +363,8 @@ if not df.empty:
     forecast_y = [ind.current_rate, ind.predicted_24h, ind.predicted_48h]
 
     all_y  = list(df["rate"]) + forecast_y
-    y_min  = round(df_10d["rate"].min() - 0.2, 2)   # 10-day low minus small padding
+    df_30d = df[df["timestamp"] >= df["timestamp"].iloc[-1] - pd.Timedelta(days=30)]
+    y_min  = round(df_30d["rate"].min() - 0.2, 2)   # 30-day low minus small padding
     y_max  = round(max(all_y) + 0.4, 2)
 
     fig = go.Figure()
