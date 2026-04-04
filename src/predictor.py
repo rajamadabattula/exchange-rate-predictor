@@ -368,10 +368,10 @@ def analyse(df: pd.DataFrame) -> Indicators | None:
     slope, label = compute_trend(series)
     ma_24h       = round(float(series.iloc[-24:].mean()), 4)
     ma_48h       = round(float(series.iloc[-48:].mean()), 4)
-    # 85th percentile of the last 72h — "top 15% of recent rates"
-    # Self-adjusting, no weekly lock, fires when rate is genuinely high lately
-    series_72h     = series.iloc[-72:] if len(series) >= 72 else series
-    dynamic_target = round(float(np.percentile(series_72h, 85)), 4)
+    # Rolling percentile target — self-adjusting, no weekly lock
+    window         = config.TARGET_WINDOW_HOURS
+    series_window  = series.iloc[-window:] if len(series) >= window else series
+    dynamic_target = round(float(np.percentile(series_window, config.TARGET_PERCENTILE)), 4)
     bb_upper, bb_lower, bb_pct = compute_bollinger(series)
     pred24, pred48, confidence, uncertainty, model_used, model_scores = forecast_rates(df)
     strength = compute_signal_strength(rsi, label, bb_pct)

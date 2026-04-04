@@ -110,11 +110,16 @@ advisor.py          ← Q&A: send in 1hr / tomorrow / best time
 
 ## How the Signal Works
 
-### Dynamic Target
+### Target Rate
+Two modes — whichever is active is shown in the dashboard header:
+
+**Manual (recommended):** Set your own target from the dashboard. Saved to the database, persists until you change it. Overrides everything.
+
+**Auto (fallback):**
 ```
-Target = 75th percentile of the last 72 hours of rates
+Target = 85th percentile of the last 72 hours of rates
 ```
-Updates every run. "Send when the rate is in the top 25% of the last 3 days." No weekly lock — always calibrated to current market conditions.
+"Send when the rate is in the top 15% of the last 3 days." Updates every run, no weekly lock.
 
 ### Signal Strength (0–100)
 Three indicators vote. Each contributes points toward a 0–100 score:
@@ -128,13 +133,13 @@ Three indicators vote. Each contributes points toward a 0–100 score:
 | Trend | Falling | +30 |
 | Trend | Sideways | +15 |
 
-**SEND NOW requires: rate ≥ target AND signal strength ≥ 50 (≥ 2 indicators agree)**
+**SEND NOW requires: rate ≥ target AND signal strength ≥ 35 (≥ 1 indicator agrees)**
 
 ### Decision Rules
 | Condition | Signal |
 |---|---|
-| Rate ≥ target AND signal strength ≥ 50 | **SEND NOW** |
-| Rate ≥ target AND signal strength < 50 | **MONITOR** (rate is good but may still rise) |
+| Rate ≥ target AND signal strength ≥ 35 | **SEND NOW** |
+| Rate ≥ target AND signal strength < 35 | **MONITOR** (rate is good but may still rise) |
 | Rate within 0.50 of target | **MONITOR** |
 | Rate below target | **WAIT** |
 
@@ -164,6 +169,7 @@ The model with the lowest 24h holdout error is used for that run's forecast. The
 | 72h area chart | Smooth spline, 48h forecast with ±uncertainty, target line, range slider |
 | Signal Strength metric | 0–100 score showing how many indicators agree |
 | Bollinger Band position | Where rate sits within its statistical normal range |
+| Manual target | Set your own target rate — saved to DB, overrides auto calculation |
 | Model comparison | All 6 model errors shown with visual bars — active model highlighted green |
 | 3-button advisor | Ask: send in an hour / tomorrow / best time — with Send to Telegram |
 | Accuracy tracker | Mean absolute error (24h/48h), % within ±0.5, SEND NOW accuracy |
@@ -265,6 +271,9 @@ python -m streamlit run src/dashboard.py
 | `FORECAST_HOURS` | 48 | Prediction horizon |
 | `RSI_OVERBOUGHT` | 70 | RSI threshold for overbought signal |
 | `RSI_OVERSOLD` | 30 | RSI threshold for oversold signal |
+| `SIGNAL_STRENGTH_GATE` | 35 | Min score (0–100) required to fire SEND NOW |
+| `TARGET_PERCENTILE` | 85 | Auto target = this percentile of recent rates |
+| `TARGET_WINDOW_HOURS` | 72 | Rolling window for auto target calculation |
 | `US_INTEREST_RATE` | 4.33 | Fed funds effective rate (%) — update periodically |
 | `INDIA_INTEREST_RATE` | 6.25 | RBI repo rate (%) — update periodically |
 | `US_INFLATION_RATE` | 2.8 | US annual CPI (%) — update periodically |
