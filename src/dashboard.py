@@ -154,7 +154,7 @@ st.markdown("""
 _stored_target = get_manual_target()
 with st.expander(
     f"🎯 Target Rate — {'Manual: ' + str(_stored_target) if _stored_target else 'Auto (85th pct of 72h)'}",
-    expanded=False,
+    expanded=True,
 ):
     st.caption(
         "Set your own target rate. Once saved it stays until you change it. "
@@ -290,7 +290,7 @@ with col_left:
         f'<span style="color:{delta_color};font-weight:600">'
         f'{delta_sign}{rate_vs_avg:.4f}</span>'
         f'&nbsp; vs 24h average &nbsp;·&nbsp; '
-        f'Target: <strong>{ind.dynamic_target:.2f}</strong> <span style="color:#9CA3AF;font-size:0.75rem">(set weekly · resets every Monday)</span>'
+        f'Target: <strong>{ind.dynamic_target:.2f}</strong> <span style="color:#9CA3AF;font-size:0.75rem">({"manual" if get_manual_target() else "auto · 85th pct 72h"})</span>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
@@ -575,10 +575,12 @@ This catches rate peaks that RSI alone might miss.
 
 ---
 
-**What is the Dynamic Target?**
-The target is set once per week as `48h average rate + 0.20` and stays fixed for the full week.
-It resets every Monday so the goalpost doesn't move mid-week.
-Current target: **{ind.dynamic_target:.2f}** (48h avg {ind.ma_48h:.2f} + 0.20)
+**What is the Target Rate?**
+You can set your own target from the **🎯 Target Rate** section above — it saves to the database and stays until you change it.
+
+If no manual target is set, the auto target is used: the **85th percentile of the last 72 hours** of rates — meaning the rate needs to be in the top 15% of recent prices to qualify.
+
+Current target: **{ind.dynamic_target:.2f}** ({"your manual target" if get_manual_target() else "auto · 85th pct of last 72h"})
 
 ---
 
@@ -586,7 +588,7 @@ Current target: **{ind.dynamic_target:.2f}** (48h avg {ind.ma_48h:.2f} + 0.20)
 
 | Signal | Meaning |
 |---|---|
-| 🟢 **SEND NOW** | Rate above target AND ≥ 2 indicators agree it's at a peak. |
+| 🟢 **SEND NOW** | Rate above target AND ≥ 1 indicator agrees it's at a peak. |
 | 🟡 **MONITOR** | Rate near/above target but signals are mixed. May still rise. |
 | ⚪ **WAIT** | Rate below target. Not the right time yet. |
 
