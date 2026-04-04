@@ -165,7 +165,7 @@ with st.expander(
         _new_target = st.number_input(
             "Target rate (INR per USD)",
             min_value=70.0, max_value=120.0,
-            value=float(_stored_target) if _stored_target else float(ind.dynamic_target if ind else 93.0),
+            value=float(_stored_target) if _stored_target else 93.0,
             step=0.05,
             format="%.2f",
             label_visibility="collapsed",
