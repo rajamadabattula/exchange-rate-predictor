@@ -71,7 +71,7 @@ def decide(ind: Indicators) -> Decision:
 
     # ── Decision logic ────────────────────────────────────────────────────────
     if rate >= threshold:
-        if strength >= config.SIGNAL_STRENGTH_GATE:
+        if strength >= getattr(config, "SIGNAL_STRENGTH_GATE", 35):
             # Multiple indicators agree the rate is at or near a peak
             if rsi >= config.RSI_OVERBOUGHT and trend == "falling":
                 summary = (

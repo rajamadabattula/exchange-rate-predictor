@@ -369,9 +369,10 @@ def analyse(df: pd.DataFrame) -> Indicators | None:
     ma_24h       = round(float(series.iloc[-24:].mean()), 4)
     ma_48h       = round(float(series.iloc[-48:].mean()), 4)
     # Rolling percentile target — self-adjusting, no weekly lock
-    window         = config.TARGET_WINDOW_HOURS
+    window         = getattr(config, "TARGET_WINDOW_HOURS", 72)
+    percentile     = getattr(config, "TARGET_PERCENTILE", 85)
     series_window  = series.iloc[-window:] if len(series) >= window else series
-    dynamic_target = round(float(np.percentile(series_window, config.TARGET_PERCENTILE)), 4)
+    dynamic_target = round(float(np.percentile(series_window, percentile)), 4)
     bb_upper, bb_lower, bb_pct = compute_bollinger(series)
     pred24, pred48, confidence, uncertainty, model_used, model_scores = forecast_rates(df)
     strength = compute_signal_strength(rsi, label, bb_pct)
