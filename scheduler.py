@@ -16,7 +16,7 @@ from pathlib import Path
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 import config
-from src.fetcher   import bootstrap, fetch_current_rate, save_current_rate, load_rates
+from src.fetcher   import bootstrap, fetch_current_rate, save_current_rate, load_rates, get_manual_target
 from src.predictor import analyse
 from src.decision  import decide, format_message
 from src.alerter   import send_message, should_send_alert, record_alert, get_chat_id
@@ -60,6 +60,11 @@ def run_check() -> None:
     if indicators is None:
         logger.warning("Skipping this cycle — insufficient data for analysis.")
         return
+    # Override target if user has set one manually
+    manual = get_manual_target()
+    if manual is not None:
+        indicators.dynamic_target = manual
+
     # 3. Make a decision
     decision = decide(indicators)
     logger.info("Signal: %s | %s", decision.signal.value, decision.summary)

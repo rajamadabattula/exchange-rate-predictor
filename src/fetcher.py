@@ -58,6 +58,12 @@ def init_db() -> None:
                 target DOUBLE PRECISION NOT NULL
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
         conn.commit()
         logger.info("Database initialised.")
     finally:
@@ -272,6 +278,40 @@ def get_weekly_target(ma_48h: float) -> float:
         conn.commit()
         logger.info("New daily target set for %s: %.4f", today, target)
         return target
+    finally:
+        conn.close()
+
+
+# -----------------------------------------------------------------------------
+# Manual target — user-set override stored in DB, persists until changed
+# -----------------------------------------------------------------------------
+
+def get_manual_target() -> float | None:
+    """Return the user's manually set target, or None if not set."""
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM settings WHERE key = 'manual_target'")
+        row = cur.fetchone()
+        return float(row[0]) if row else None
+    finally:
+        conn.close()
+
+
+def set_manual_target(target: float | None) -> None:
+    """Store (or clear) the manual target in the DB."""
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        if target is None:
+            cur.execute("DELETE FROM settings WHERE key = 'manual_target'")
+        else:
+            cur.execute(
+                "INSERT INTO settings (key, value) VALUES ('manual_target', %s) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                (str(target),)
+            )
+        conn.commit()
     finally:
         conn.close()
 

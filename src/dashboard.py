@@ -19,14 +19,14 @@ sys.path.insert(0, _here)
 
 import config
 try:
-    from src.fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate
+    from src.fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate, get_manual_target, set_manual_target
     from src.predictor import analyse
     from src.decision  import decide, format_message, Signal
     from src.alerter   import send_message
     from src.advisor   import send_in_one_hour, send_tomorrow, best_time_to_send
     from src.accuracy  import compute_accuracy
 except ImportError:
-    from fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate
+    from fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate, get_manual_target, set_manual_target
     from predictor import analyse
     from decision  import decide, format_message, Signal
     from alerter   import send_message
@@ -149,6 +149,37 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Manual target override ────────────────────────────────────────────────────
+
+_stored_target = get_manual_target()
+with st.expander(
+    f"🎯 Target Rate — {'Manual: ' + str(_stored_target) if _stored_target else 'Auto (85th pct of 72h)'}",
+    expanded=False,
+):
+    st.caption(
+        "Set your own target rate. Once saved it stays until you change it. "
+        "Clear it to go back to the automatic calculation."
+    )
+    _col1, _col2 = st.columns([3, 1])
+    with _col1:
+        _new_target = st.number_input(
+            "Target rate (INR per USD)",
+            min_value=70.0, max_value=120.0,
+            value=float(_stored_target) if _stored_target else float(ind.dynamic_target if ind else 93.0),
+            step=0.05,
+            format="%.2f",
+            label_visibility="collapsed",
+        )
+    with _col2:
+        if st.button("Save", use_container_width=True):
+            set_manual_target(_new_target)
+            st.toast(f"Target set to {_new_target:.2f}", icon="🎯")
+            st.rerun()
+    if _stored_target and st.button("Clear — use auto target", use_container_width=True):
+        set_manual_target(None)
+        st.toast("Reverted to automatic target", icon="↩️")
+        st.rerun()
+
 # ── Telegram setup — always visible on main page ──────────────────────────────
 
 with st.expander("📲 Get Telegram Alerts — Enter your Chat ID here", expanded=False):
@@ -203,6 +234,10 @@ def get_data():
     df_10d     = load_rates(days=10)   # 10 days for y-axis floor calculation
     df         = load_rates(days=3)    # 72 hours for chart display
     indicators = analyse(df_10d)       # analyse on full 10d for better indicators
+    if indicators:
+        manual = get_manual_target()
+        if manual is not None:
+            indicators.dynamic_target = manual
     decision   = decide(indicators) if indicators else None
     last_updated = df_10d["timestamp"].iloc[-1] if not df_10d.empty else None
     return df, df_10d, indicators, decision, last_updated
