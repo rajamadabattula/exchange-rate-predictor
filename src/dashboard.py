@@ -48,9 +48,10 @@ st.set_page_config(
 
 _refresh_count = st_autorefresh(interval=60_000, key="rate_auto_refresh")
 if _refresh_count > 0:
-    _rate = fetch_current_rate()
-    if _rate:
-        save_current_rate(_rate)
+    with st.spinner("Refreshing rate…"):
+        _rate = fetch_current_rate()
+        if _rate:
+            save_current_rate(_rate)
     st.cache_data.clear()
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -162,7 +163,8 @@ def get_send_now_markers(days: int = 7):
         return pd.DataFrame()
 
 
-df_7d, df_10d, ind, dec, acc, last_updated = get_data()
+with st.spinner("Fetching latest rate…"):
+    df_7d, df_10d, ind, dec, acc, last_updated = get_data()
 
 if ind is None or dec is None:
     st.error("Not enough data. Run `python scheduler.py --now` first, then refresh.")
