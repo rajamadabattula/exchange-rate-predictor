@@ -99,6 +99,39 @@ st.markdown("""
     .contrib-bar-wrap { background: #F3F4F6; border-radius: 4px; height: 5px; margin-top: 3px; width: 100%; }
     .contrib-bar      { border-radius: 4px; height: 5px; }
 
+    /* ── Tab bar ── */
+    [data-testid="stTabs"] > div:first-child {
+        border-bottom: 2px solid #E5E7EB;
+        gap: 0;
+    }
+    [data-testid="stTabs"] button[data-baseweb="tab"] {
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.1rem !important;
+        color: #6B7280 !important;
+        border-bottom: 2px solid transparent !important;
+        margin-bottom: -2px !important;
+        background: transparent !important;
+    }
+    [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+        color: #1D4ED8 !important;
+        border-bottom: 2px solid #1D4ED8 !important;
+    }
+    [data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+        color: #374151 !important;
+        background: #F9FAFB !important;
+    }
+
+    /* ── Settings cards ── */
+    .settings-card {
+        background: #FAFAFA; border: 1px solid #E5E7EB;
+        border-radius: 10px; padding: 1.1rem 1.3rem; margin-bottom: 1rem;
+    }
+    .settings-card-title {
+        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.09em; color: #6B7280; margin-bottom: 0.75rem;
+    }
+
     @media (max-width: 768px) {
         .block-container { padding: 0.75rem 0.75rem 2rem !important; }
         .rate-hero        { font-size: 2.2rem !important; }
@@ -498,7 +531,7 @@ st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["📊 Dashboard", "🔮 Forecast", "🤖 Models", "📈 Accuracy", "⚙️ Settings"]
+    ["📊 Signal", "🔮 Forecast", "🤖 Models", "📈 Accuracy", "⚙️ Settings"]
 )
 
 # ═══════════════════════════════
@@ -554,6 +587,7 @@ with tab1:
             unsafe_allow_html=True,
         )
 
+    st.divider()
     _t1a, _t1b = st.columns(2)
 
     with _t1a:
@@ -604,7 +638,7 @@ with tab1:
                     unsafe_allow_html=True,
                 )
 
-        st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+        st.divider()
         st.markdown('<div class="section-title">Ask the Advisor</div>', unsafe_allow_html=True)
         QUESTIONS = {
             "q1": ("Send in an hour?", send_in_one_hour),
@@ -673,7 +707,7 @@ with tab2:
         unsafe_allow_html=True,
     )
 
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    st.divider()
     st.markdown('<div class="section-title">Scenario Simulator</div>', unsafe_allow_html=True)
     _sa1, _sa2 = st.columns([1, 2])
     with _sa1:
@@ -805,7 +839,7 @@ with tab3:
     else:
         st.caption("Model comparison available after 100+ data points.")
 
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    st.divider()
     with st.expander("What does each model do?", expanded=False):
         st.markdown("""
 | Model | Approach |
@@ -901,67 +935,95 @@ with tab4:
 # TAB 5 — Settings
 # ═══════════════════════════════
 with tab5:
-    st.markdown('<div class="section-title">Target Rate</div>', unsafe_allow_html=True)
     _stored = get_manual_target()
-    st.caption(f"Active: {'Manual — ' + str(_stored) if _stored else 'Auto (85th percentile of last 72h)'}")
-    _ts1, _ts2 = st.columns([3, 1])
+
+    # ── Target Rate card ──────────────────────────────────────────────────────
+    st.markdown(
+        '<div class="settings-card">'
+        '<div class="settings-card-title">🎯 Target Rate</div>',
+        unsafe_allow_html=True,
+    )
+    _mode_badge = (
+        f'<span style="background:#DBEAFE;color:#1D4ED8;font-size:0.72rem;'
+        f'font-weight:700;padding:2px 8px;border-radius:20px">MANUAL · {_stored:.2f}</span>'
+        if _stored else
+        '<span style="background:#F3F4F6;color:#6B7280;font-size:0.72rem;'
+        'font-weight:700;padding:2px 8px;border-radius:20px">AUTO · 85th pct 72h</span>'
+    )
+    st.markdown(
+        f'<div style="margin-bottom:0.75rem">Currently active: {_mode_badge}</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    _ts1, _ts2, _ts3 = st.columns([3, 1, 1])
     with _ts1:
-        _new_t = st.number_input("Target", min_value=70.0, max_value=120.0,
+        _new_t = st.number_input("Set target rate (INR/USD)", min_value=70.0, max_value=120.0,
                                  value=float(_stored) if _stored else 93.0,
-                                 step=0.05, format="%.2f", label_visibility="collapsed")
+                                 step=0.05, format="%.2f", label_visibility="visible")
     with _ts2:
-        if st.button("Save", use_container_width=True, type="primary"):
+        st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
+        if st.button("💾 Save", use_container_width=True, type="primary"):
             set_manual_target(_new_t)
             st.toast(f"Target set to {_new_t:.2f}", icon="🎯")
             st.rerun()
-    if _stored:
-        if st.button("Clear — revert to auto"):
-            set_manual_target(None)
-            st.toast("Reverted to auto (85th pct 72h)", icon="↩️")
-            st.rerun()
+    with _ts3:
+        st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
+        if _stored:
+            if st.button("↩ Auto", use_container_width=True):
+                set_manual_target(None)
+                st.toast("Reverted to auto (85th pct 72h)", icon="↩️")
+                st.rerun()
 
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Telegram Alerts</div>', unsafe_allow_html=True)
+    st.divider()
+
+    # ── Telegram Alerts card ──────────────────────────────────────────────────
+    st.markdown(
+        '<div class="settings-card">'
+        '<div class="settings-card-title">📲 Telegram Alerts</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "**Step 1:** Search **@Rajam009bot** on Telegram → send it `hi` (activates the bot)\n\n"
         "**Step 2:** Message [@userinfobot](https://t.me/userinfobot) → it replies with your Chat ID\n\n"
-        "**Step 3:** Paste below — the Send buttons across the dashboard become active"
+        "**Step 3:** Paste your Chat ID below — Send buttons across the dashboard become active"
     )
+    st.markdown('</div>', unsafe_allow_html=True)
+
     _cid = st.text_input("Your Telegram Chat ID", value=st.session_state["user_chat_id"],
-                          placeholder="e.g. 123456789", label_visibility="collapsed")
+                          placeholder="e.g. 123456789")
     if _cid != st.session_state["user_chat_id"]:
         st.session_state["user_chat_id"] = _cid
     if _cid.strip():
-        st.success("✅ Ready — all Send buttons are active.")
-        if st.button("📲 Send a test alert now"):
+        st.success("✅ Ready — all Send buttons across the dashboard are now active.")
+        if st.button("📲 Send a test alert now", use_container_width=False):
             _s = send_message(format_message(dec, ind), chat_id=_cid.strip())
             st.toast("Sent!" if _s else "Failed — did you message the bot first?",
                      icon="📲" if _s else "⚠️")
     else:
-        st.caption("Chat ID is only stored in your browser session — never saved to any database.")
+        st.caption("Chat ID is stored only in your browser session — never saved to the database.")
 
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-    with st.expander("Want your own alerts?", expanded=False):
-        st.markdown(
-            "This app is open source. "
-            "[Fork the repo on GitHub](https://github.com/rajamadabattula/exchange-rate-predictor) "
-            "→ set up your own Telegram bot (~5 min) → host free on "
-            "[Streamlit Cloud](https://streamlit.io/cloud). "
-            "You'll get SEND NOW alerts sent directly to your phone."
-        )
+    st.divider()
 
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-    with st.expander("Why this was built", expanded=False):
-        st.markdown("""
-I came from India to the US for my Master's degree. Like most international students, I carry
-debt back home — and every month I face the same question: *when do I send money?*
-
-A week before building this, I sent money at a rate that was **₹3 per dollar lower** than it
-became just days later. That's thousands of rupees lost in a single transfer.
-
-So instead of guessing, I built this. It watches the rate around the clock, predicts where it's
-heading, and tells you in plain English — **send now** or **wait**.
-""")
+    # ── About cards ───────────────────────────────────────────────────────────
+    _ab1, _ab2 = st.columns(2)
+    with _ab1:
+        with st.expander("🍴 Want your own alerts?", expanded=False):
+            st.markdown(
+                "This app is open source. "
+                "[Fork the repo on GitHub](https://github.com/rajamadabattula/exchange-rate-predictor) "
+                "→ set up your own Telegram bot (~5 min) → host free on "
+                "[Streamlit Cloud](https://streamlit.io/cloud). "
+                "You'll get SEND NOW alerts directly to your phone."
+            )
+    with _ab2:
+        with st.expander("💡 Why this was built", expanded=False):
+            st.markdown(
+                "I came from India to the US for my Master's degree. Every month I faced the same "
+                "question: *when do I send money?*\n\n"
+                "A week before building this, I sent at a rate **₹3/dollar lower** than it became "
+                "days later — thousands of rupees lost. So I built this instead of guessing."
+            )
 
 # ── Footer ─────────────────────────────────────────────────────────────────────
 
