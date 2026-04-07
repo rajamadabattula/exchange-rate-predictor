@@ -862,16 +862,13 @@ with tab4:
     if acc is None:
         st.info("Not enough scored predictions yet. Check back in 24–48 hours.")
     else:
-        _a1, _a2, _a3, _a4 = st.columns(4)
+        _, _a1, _a2, _a3, _ = st.columns([0.5, 2, 2, 2, 0.5])
         _a1.metric("24h Forecast Error", f"±{acc.mae_24h:.4f}",
                    help="Mean absolute error for 24h forecasts vs actual rates")
         _a2.metric("48h Forecast Error", f"±{acc.mae_48h:.4f}",
                    help="Mean absolute error for 48h forecasts vs actual rates")
         _a3.metric("Within ±0.5  (24h)", f"{acc.within_half_24h:.0f}%",
                    help="% of 24h predictions within ±0.5 of actual rate")
-        _a4.metric("SEND NOW Accuracy",
-                   f"{acc.signal_accuracy:.0f}%" if (acc.signal_correct + acc.signal_wrong) > 0 else "—",
-                   f"{acc.signal_correct} correct · {acc.signal_wrong} wrong")
 
         _mc  = max(0, min(100, int((1 - acc.mae_24h / 0.5) * 100))) if acc.mae_24h > 0 else 50
         st.markdown(
