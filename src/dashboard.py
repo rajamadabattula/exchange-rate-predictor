@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 _here = os.path.dirname(os.path.abspath(__file__))
 _root = os.path.dirname(_here)
@@ -43,16 +44,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── Auto-refresh every 60 seconds (server-side, not JS timer) ─────────────────
+# ── Auto-refresh every 60 seconds ─────────────────────────────────────────────
 
-@st.fragment(run_every=60)
-def _auto_fetch():
-    _rate = fetch_current_rate()
-    if _rate:
-        save_current_rate(_rate)
-        st.cache_data.clear()
-
-_auto_fetch()
+_refresh_count = st_autorefresh(interval=60_000, key="rate_auto_refresh")
+if _refresh_count > 0:
+    with st.spinner("Refreshing rate…"):
+        _rate = fetch_current_rate()
+        if _rate:
+            save_current_rate(_rate)
+    st.cache_data.clear()
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 
