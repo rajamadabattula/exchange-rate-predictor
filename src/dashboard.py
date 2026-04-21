@@ -50,8 +50,7 @@ def _auto_fetch():
     _rate = fetch_current_rate()
     if _rate:
         save_current_rate(_rate)
-    st.cache_data.clear()
-    st.rerun(scope="app")
+        st.cache_data.clear()
 
 _auto_fetch()
 
