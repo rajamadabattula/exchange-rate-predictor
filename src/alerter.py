@@ -119,17 +119,21 @@ def _save_state(state: dict) -> None:
 def should_send_alert(signal: str) -> bool:
     """
     Sends an alert when:
-    - Signal just changed to SEND NOW (immediate — don't wait)
-    - Every 3 hours regardless of signal (summary update)
+    - Signal just flipped to SEND NOW (immediate, bypasses quiet window)
+    - Every ALERT_INTERVAL_HOURS regardless of signal (hourly summary)
+      The hourly clock runs independently — a SEND NOW alert does NOT
+      reset the hourly timer, so summaries stay on the hour.
     """
     state             = _load_state()
     last_signal       = state.get("last_signal")
     last_summary_time = state.get("last_summary_time")
     now               = datetime.now(timezone.utc)
 
+    # Immediate: signal just flipped to SEND NOW
     if signal == "SEND NOW" and last_signal != "SEND NOW":
         return True
 
+    # Hourly summary: fire if >= ALERT_INTERVAL_HOURS since last summary
     if last_summary_time is None:
         return True
     last_dt = datetime.fromisoformat(last_summary_time)
@@ -139,14 +143,19 @@ def should_send_alert(signal: str) -> bool:
     return elapsed >= config.ALERT_INTERVAL_HOURS
 
 
-def record_alert(signal: str) -> None:
-    """Update state after sending an alert."""
-    now = datetime.now(timezone.utc).isoformat()
-    _save_state({
-        "last_alert_time":   now,
-        "last_summary_time": now,
-        "last_signal":       signal,
-    })
+def record_alert(signal: str, is_summary: bool = False) -> None:
+    """
+    Update state after sending an alert.
+    Only reset last_summary_time for summary alerts, not for SEND NOW
+    immediate alerts — so the hourly clock stays on schedule.
+    """
+    state = _load_state()
+    now   = datetime.now(timezone.utc).isoformat()
+    state["last_alert_time"] = now
+    state["last_signal"]     = signal
+    if is_summary or signal != "SEND NOW":
+        state["last_summary_time"] = now
+    _save_state(state)
 
 
 # -----------------------------------------------------------------------------
