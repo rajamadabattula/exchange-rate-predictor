@@ -16,4 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Ping Streamlit App
-        run: curl -L -s -o /dev/null -w "%{http_code}\n" https://usdtoinr.streamlit.app/
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://usdtoinr.streamlit.app/)
+          echo "HTTP status: $STATUS"
+          exit 0
