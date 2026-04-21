@@ -1,0 +1,16 @@
+name: Hourly Website Task
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-website-task:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Ping Streamlit App (follow redirects)
+        run: curl -L -I https://usdtoinr.streamlit.app/
