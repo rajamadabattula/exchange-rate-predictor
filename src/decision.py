@@ -46,10 +46,28 @@ def _strength_label(s: int) -> str:
 
 def decide(ind: Indicators) -> Decision:
     """
-    Uses a dynamic target (85th percentile of last 72h rates).
+    Uses a dynamic target (75th percentile of last 72h rates).
     Requires signal_strength ≥ 35 (≥ 1 indicator) before firing SEND NOW.
+    If a minimum_target floor is set and rate is below it, always returns WAIT.
     """
     rate      = ind.current_rate
+
+    # ── Minimum floor trigger — fire SEND NOW the moment rate hits the floor ──
+    # The user set this as "I'll accept this rate — if it falls this far, lock it in
+    # immediately rather than risk it falling further."
+    if ind.minimum_target is not None and rate <= ind.minimum_target:
+        reasons: list[str] = [
+            f"Current rate    : {rate:.4f} INR/USD",
+            f"Minimum floor   : {ind.minimum_target:.4f}  (your stop-loss floor)",
+            f"Dynamic target  : {ind.dynamic_target:.4f}  ({getattr(config, 'TARGET_PERCENTILE', 75)}th pct of 72h range)",
+        ]
+        summary = (
+            f"Rate {rate:.2f} has fallen to your minimum floor of {ind.minimum_target:.2f}. "
+            f"Lock in this rate now — waiting risks an even lower rate."
+        )
+        return Decision(signal=Signal.SEND_NOW, reasons=reasons, summary=summary)
+
+
     rsi       = ind.rsi_14
     trend     = ind.trend_label
     pred24    = ind.predicted_24h
@@ -61,7 +79,7 @@ def decide(ind: Indicators) -> Decision:
 
     # ── Context lines shown in dashboard ──────────────────────────────────────
     reasons.append(f"Current rate    : {rate:.4f} INR/USD")
-    reasons.append(f"Dynamic target  : {threshold:.4f}  (75th pct of 72h range)")
+    reasons.append(f"Dynamic target  : {threshold:.4f}  ({getattr(config, 'TARGET_PERCENTILE', 75)}th pct of 72h range)")
     reasons.append(f"RSI (14)        : {rsi:.1f}  {'Overbought ↓' if rsi >= config.RSI_OVERBOUGHT else 'Normal' if rsi > config.RSI_OVERSOLD else 'Oversold ↑'}")
     reasons.append(f"Trend           : {trend.capitalize()} ({ind.trend_slope:+.5f}/hr)")
     reasons.append(f"Bollinger Band  : {_bb_label(ind.bb_pct)}")
@@ -154,7 +172,16 @@ def format_message(decision: Decision, ind: Indicators, is_summary: bool = False
     prefix = "📋 *1-Hour Update*\n\n" if is_summary else ""
 
     if decision.signal == Signal.SEND_NOW:
-        if rate < target:
+        if ind.minimum_target is not None and rate <= ind.minimum_target:
+            # Floor triggered — rate hit the user's minimum stop-loss level
+            msg = (
+                f"{prefix}"
+                f"🔴 *Rate hit your minimum floor — send now.*\n\n"
+                f"Rate is *{rate:.2f}* — at or below your floor of {ind.minimum_target:.2f}.\n"
+                f"You set this to protect yourself from a worse rate. Lock it in now.\n\n"
+                f"_Forecast → 24h: {pred24:.2f} ±{unc:.2f}  |  48h: {pred48:.2f}_"
+            )
+        elif rate < target:
             # Falling trap — rate won't reach target, send before it falls further
             msg = (
                 f"{prefix}"

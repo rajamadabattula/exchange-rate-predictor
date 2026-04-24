@@ -317,6 +317,40 @@ def set_manual_target(target: float | None) -> None:
 
 
 # -----------------------------------------------------------------------------
+# Minimum target — floor rate below which we never send
+# -----------------------------------------------------------------------------
+
+def get_minimum_target() -> float | None:
+    """Return the user's minimum acceptable rate, or None if not set."""
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM settings WHERE key = 'minimum_target'")
+        row = cur.fetchone()
+        return float(row[0]) if row else None
+    finally:
+        conn.close()
+
+
+def set_minimum_target(target: float | None) -> None:
+    """Store (or clear) the minimum target floor in the DB."""
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        if target is None:
+            cur.execute("DELETE FROM settings WHERE key = 'minimum_target'")
+        else:
+            cur.execute(
+                "INSERT INTO settings (key, value) VALUES ('minimum_target', %s) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                (str(target),)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# -----------------------------------------------------------------------------
 # Bootstrap
 # -----------------------------------------------------------------------------
 

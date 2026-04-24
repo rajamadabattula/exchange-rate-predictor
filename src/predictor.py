@@ -49,6 +49,7 @@ class Indicators:
     forecast_uncertainty: float = 0.0   # ±1σ of model residuals
     model_used:           str   = ""     # which model won: "GBM" | "Linear" | "ExpSmooth"
     model_scores:         dict  = None   # {model: holdout_error} for all 3 models
+    minimum_target:       float | None = None  # floor rate — never send below this
 
     def __post_init__(self):
         if self.model_scores is None:

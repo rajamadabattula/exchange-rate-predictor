@@ -46,7 +46,7 @@ SIGNAL_STRENGTH_GATE  = 35     # Min signal strength to fire SEND NOW (0–100)
 # --- Target Rate ---
 # Manual target can be set from the dashboard (stored in DB, overrides auto).
 # If no manual target is set, the auto target is used:
-TARGET_PERCENTILE     = 85     # 85th percentile of the last 72h of rates
+TARGET_PERCENTILE     = 75     # 75th percentile of the last 72h of rates
 TARGET_WINDOW_HOURS   = 72     # Rolling window for percentile calculation
 
 # --- Economic Parameters (update a few times per year as conditions change) ---

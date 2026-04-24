@@ -19,7 +19,7 @@ sys.path.insert(0, _here)
 
 import config
 try:
-    from src.fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate, get_manual_target, set_manual_target
+    from src.fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate, get_manual_target, set_manual_target, get_minimum_target, set_minimum_target
     from src.predictor import analyse
     from src.decision  import decide, format_message, Signal
     from src.alerter   import send_message
@@ -27,7 +27,7 @@ try:
     from src.accuracy  import compute_accuracy
     from src.db        import get_conn
 except ImportError:
-    from fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate, get_manual_target, set_manual_target
+    from fetcher   import bootstrap, load_rates, fetch_current_rate, save_current_rate, get_manual_target, set_manual_target, get_minimum_target, set_minimum_target
     from predictor import analyse
     from decision  import decide, format_message, Signal
     from alerter   import send_message
@@ -169,6 +169,7 @@ def get_data():
         manual = get_manual_target()
         if manual is not None:
             ind.dynamic_target = manual
+        ind.minimum_target = get_minimum_target()
     dec    = decide(ind) if ind else None
     acc    = compute_accuracy()
     last_ts = df_10d["timestamp"].iloc[-1] if not df_10d.empty else None
@@ -275,6 +276,15 @@ with col_rate:
         f'USD / INR · {ts_str} · refreshes every 60s</p>',
         unsafe_allow_html=True,
     )
+    _min_tgt = get_minimum_target()
+    _at_floor = _min_tgt is not None and ind.current_rate <= _min_tgt
+    _floor_html = ""
+    if _min_tgt is not None:
+        _floor_color = "#DC2626" if _at_floor else "#6B7280"
+        _floor_html = (
+            f' &nbsp;·&nbsp; Floor: <strong style="color:{_floor_color}">{_min_tgt:.2f}</strong>'
+            + (f' <span style="color:#DC2626;font-weight:700">⚠ HIT</span>' if _at_floor else "")
+        )
     st.markdown(
         f'<div class="rate-hero">{ind.current_rate:.4f}</div>'
         f'<div class="rate-sub">'
@@ -282,6 +292,7 @@ with col_rate:
         f' vs 24h avg &nbsp;·&nbsp; Target: <strong>{ind.dynamic_target:.2f}</strong>'
         f' <span style="color:#9CA3AF">('
         f'{"manual" if get_manual_target() else "auto"})</span>'
+        f'{_floor_html}'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -484,6 +495,17 @@ if not df_chart.empty:
         annotation_bgcolor="rgba(255,255,255,0.85)",
         annotation_borderpad=3,
     )
+    # Minimum floor line (red dashed)
+    if ind.minimum_target is not None:
+        fig.add_hline(
+            y=ind.minimum_target, line_color="#DC2626",
+            line_width=1.5, line_dash="dash",
+            annotation_text=f"Floor {ind.minimum_target:.2f}",
+            annotation_font=dict(size=11, color="#DC2626"),
+            annotation_position="bottom right",
+            annotation_bgcolor="rgba(255,255,255,0.85)",
+            annotation_borderpad=3,
+        )
 
     # Now dot
     fig.add_trace(go.Scatter(
@@ -932,7 +954,8 @@ with tab4:
 # TAB 5 — Settings
 # ═══════════════════════════════
 with tab5:
-    _stored = get_manual_target()
+    _stored     = get_manual_target()
+    _stored_min = get_minimum_target()
 
     # ── Target Rate card ──────────────────────────────────────────────────────
     st.markdown(
@@ -944,8 +967,8 @@ with tab5:
         f'<span style="background:#DBEAFE;color:#1D4ED8;font-size:0.72rem;'
         f'font-weight:700;padding:2px 8px;border-radius:20px">MANUAL · {_stored:.2f}</span>'
         if _stored else
-        '<span style="background:#F3F4F6;color:#6B7280;font-size:0.72rem;'
-        'font-weight:700;padding:2px 8px;border-radius:20px">AUTO · 85th pct 72h</span>'
+        f'<span style="background:#F3F4F6;color:#6B7280;font-size:0.72rem;'
+        f'font-weight:700;padding:2px 8px;border-radius:20px">AUTO · {config.TARGET_PERCENTILE}th pct 72h</span>'
     )
     st.markdown(
         f'<div style="margin-bottom:0.75rem">Currently active: {_mode_badge}</div>',
@@ -969,7 +992,52 @@ with tab5:
         if _stored:
             if st.button("↩ Auto", use_container_width=True):
                 set_manual_target(None)
-                st.toast("Reverted to auto (85th pct 72h)", icon="↩️")
+                st.toast(f"Reverted to auto ({config.TARGET_PERCENTILE}th pct 72h)", icon="↩️")
+                st.rerun()
+
+    st.divider()
+
+    # ── Minimum Floor card ────────────────────────────────────────────────────
+    st.markdown(
+        '<div class="settings-card">'
+        '<div class="settings-card-title">🛡️ Minimum Floor Rate</div>',
+        unsafe_allow_html=True,
+    )
+    _floor_badge = (
+        f'<span style="background:#FEE2E2;color:#DC2626;font-size:0.72rem;'
+        f'font-weight:700;padding:2px 8px;border-radius:20px">FLOOR · {_stored_min:.2f}</span>'
+        if _stored_min else
+        '<span style="background:#F3F4F6;color:#6B7280;font-size:0.72rem;'
+        'font-weight:700;padding:2px 8px;border-radius:20px">NOT SET</span>'
+    )
+    st.markdown(
+        f'<div style="margin-bottom:0.75rem">Status: {_floor_badge}</div>'
+        f'<div style="font-size:0.83rem;color:#374151;margin-bottom:0.75rem">'
+        f'Set a floor rate you\'re willing to accept. If the rate falls <strong>to or below</strong> '
+        f'this level, you\'ll get an immediate <strong>SEND NOW</strong> alert — '
+        f'lock it in before it falls further.'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    _fs1, _fs2, _fs3 = st.columns([3, 1, 1])
+    with _fs1:
+        _new_floor = st.number_input("Set minimum floor rate (INR/USD)", min_value=70.0, max_value=120.0,
+                                     value=float(_stored_min) if _stored_min else round(ind.current_rate - 0.5, 2),
+                                     step=0.05, format="%.2f", label_visibility="visible")
+    with _fs2:
+        st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
+        if st.button("💾 Save Floor", use_container_width=True, type="primary", key="save_floor"):
+            set_minimum_target(_new_floor)
+            st.toast(f"Floor set to {_new_floor:.2f}", icon="🛡️")
+            st.rerun()
+    with _fs3:
+        st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
+        if _stored_min:
+            if st.button("✕ Clear", use_container_width=True, key="clear_floor"):
+                set_minimum_target(None)
+                st.toast("Minimum floor cleared", icon="✕")
                 st.rerun()
 
     st.divider()
