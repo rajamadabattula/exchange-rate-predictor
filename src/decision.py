@@ -26,9 +26,10 @@ class Signal(Enum):
 
 @dataclass
 class Decision:
-    signal:  Signal
-    reasons: list[str]
-    summary: str
+    signal:        Signal
+    reasons:       list[str]
+    summary:       str
+    floor_triggered: bool = False
 
 
 def _bb_label(bb_pct: float) -> str:
@@ -65,7 +66,7 @@ def decide(ind: Indicators) -> Decision:
             f"Rate {rate:.2f} has fallen to your minimum floor of {ind.minimum_target:.2f}. "
             f"Lock in this rate now — waiting risks an even lower rate."
         )
-        return Decision(signal=Signal.SEND_NOW, reasons=reasons, summary=summary)
+        return Decision(signal=Signal.SEND_NOW, reasons=reasons, summary=summary, floor_triggered=True)
 
 
     rsi       = ind.rsi_14
@@ -169,7 +170,7 @@ def format_message(decision: Decision, ind: Indicators, is_summary: bool = False
     strength  = ind.signal_strength
     unc       = ind.forecast_uncertainty
 
-    prefix = "📋 *1-Hour Update*\n\n" if is_summary else ""
+    prefix = f"📋 *{rate:.2f} INR/USD*\n\n" if is_summary else ""
 
     if decision.signal == Signal.SEND_NOW:
         if ind.minimum_target is not None and rate <= ind.minimum_target:

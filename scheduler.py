@@ -75,14 +75,17 @@ def run_check() -> None:
     save_prediction(indicators, decision.signal.value)
 
     # 5. Send alert if conditions are met
-    if should_send_alert(decision.signal.value):
+    # Floor-triggered SEND NOW always fires — it's a stop-loss, not a normal signal flip.
+    force_send = decision.floor_triggered
+    if force_send or should_send_alert(decision.signal.value):
         is_summary = decision.signal.value != "SEND NOW"
         message = format_message(decision, indicators, is_summary=is_summary)
         sent    = send_message(message)
         if sent:
             record_alert(decision.signal.value, is_summary=is_summary)
-            logger.info("Alert sent — signal=%s | rate=%.4f | target=%.4f",
-                        decision.signal.value, indicators.current_rate, indicators.dynamic_target)
+            logger.info("Alert sent — signal=%s | rate=%.4f | target=%.4f | floor=%s",
+                        decision.signal.value, indicators.current_rate, indicators.dynamic_target,
+                        decision.floor_triggered)
         else:
             logger.warning("Alert FAILED to send — Telegram error.")
     else:
