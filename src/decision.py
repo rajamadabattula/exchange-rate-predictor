@@ -170,9 +170,7 @@ def format_message(decision: Decision, ind: Indicators, is_summary: bool = False
     strength  = ind.signal_strength
     unc       = ind.forecast_uncertainty
 
-    floor_line = f"  |  Floor: {ind.minimum_target:.2f}" if ind.minimum_target is not None else ""
-    header = f"*{rate:.2f} INR/USD*{floor_line}"
-    prefix = f"📋 {header}\n\n" if is_summary else f"{header}\n\n"
+    prefix = f"📋 *{rate:.2f} INR/USD*\n\n" if is_summary else f"*{rate:.2f} INR/USD*\n\n"
 
     if decision.signal == Signal.SEND_NOW:
         if ind.minimum_target is not None and rate <= ind.minimum_target:
