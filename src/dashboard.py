@@ -420,8 +420,11 @@ if not df_chart.empty:
             ind.predicted_24h - _unc,
             ind.predicted_48h - _unc * 1.4]
 
-    _y_min = round(min(list(df_chart["rate"]) + _flo) - 0.1, 2)
-    _y_max = round(max(list(df_chart["rate"]) + _fhi) + 0.2, 2)
+    _key_vals = list(df_chart["rate"]) + [ind.predicted_24h, ind.predicted_48h, ind.dynamic_target]
+    if ind.minimum_target is not None:
+        _key_vals.append(ind.minimum_target)
+    _y_min = round(min(_key_vals) - 0.15, 2)
+    _y_max = round(max(_key_vals) + 0.15, 2)
 
     fig = go.Figure()
 
@@ -529,7 +532,7 @@ if not df_chart.empty:
             tickfont=dict(size=10, color="#9CA3AF"),
             tickformat="%H:%M\n%b %d" if window != "7d" else "%b %d",
             dtick=_dtick,
-            rangeslider=dict(visible=True, thickness=0.03, bgcolor="#F9FAFB"),
+            rangeslider=dict(visible=False),
         ),
         yaxis=dict(
             range=[_y_min, _y_max], showgrid=True, gridcolor="#F3F4F6",
