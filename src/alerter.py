@@ -76,7 +76,7 @@ def _load_state() -> dict:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT last_alert_time, last_signal, last_summary_time "
+            "SELECT last_alert_time, last_signal, last_summary_time, last_floor_rate "
             "FROM alert_state ORDER BY id ASC LIMIT 1"
         )
         row = cur.fetchone()
@@ -84,11 +84,12 @@ def _load_state() -> dict:
         conn.close()
 
     if row is None:
-        return {"last_alert_time": None, "last_signal": None, "last_summary_time": None}
+        return {"last_alert_time": None, "last_signal": None, "last_summary_time": None, "last_floor_rate": None}
     return {
         "last_alert_time":   row[0].isoformat() if row[0] else None,
         "last_signal":       row[1],
         "last_summary_time": row[2].isoformat() if row[2] else None,
+        "last_floor_rate":   row[3],
     }
 
 
@@ -101,19 +102,36 @@ def _save_state(state: dict) -> None:
         row = cur.fetchone()
         if row is None:
             cur.execute(
-                "INSERT INTO alert_state (last_alert_time, last_signal, last_summary_time) "
-                "VALUES (%s, %s, %s)",
-                (state["last_alert_time"], state["last_signal"], state["last_summary_time"])
+                "INSERT INTO alert_state (last_alert_time, last_signal, last_summary_time, last_floor_rate) "
+                "VALUES (%s, %s, %s, %s)",
+                (state["last_alert_time"], state["last_signal"], state["last_summary_time"], state.get("last_floor_rate"))
             )
         else:
             cur.execute(
-                "UPDATE alert_state SET last_alert_time=%s, last_signal=%s, last_summary_time=%s "
+                "UPDATE alert_state SET last_alert_time=%s, last_signal=%s, last_summary_time=%s, last_floor_rate=%s "
                 "WHERE id=%s",
-                (state["last_alert_time"], state["last_signal"], state["last_summary_time"], row[0])
+                (state["last_alert_time"], state["last_signal"], state["last_summary_time"], state.get("last_floor_rate"), row[0])
             )
         conn.commit()
     finally:
         conn.close()
+
+
+FLOOR_DROP_THRESHOLD = 0.10  # only re-alert if rate falls another 0.10 from last floor alert
+
+
+def should_send_floor_alert(rate: float) -> bool:
+    """
+    Only send a floor alert if:
+    - This is the first time the floor has been hit, OR
+    - Rate has dropped >= 0.10 below the last floor alert rate.
+    Prevents spam when rate hovers at the floor.
+    """
+    state           = _load_state()
+    last_floor_rate = state.get("last_floor_rate")
+    if last_floor_rate is None:
+        return True
+    return rate <= last_floor_rate - FLOOR_DROP_THRESHOLD
 
 
 def should_send_alert(signal: str) -> bool:
@@ -143,7 +161,7 @@ def should_send_alert(signal: str) -> bool:
     return elapsed >= config.ALERT_INTERVAL_HOURS
 
 
-def record_alert(signal: str, is_summary: bool = False) -> None:
+def record_alert(signal: str, is_summary: bool = False, floor_rate: float | None = None) -> None:
     """
     Update state after sending an alert.
     Only reset last_summary_time for summary alerts, not for SEND NOW
@@ -155,6 +173,8 @@ def record_alert(signal: str, is_summary: bool = False) -> None:
     state["last_signal"]     = signal
     if is_summary or signal != "SEND NOW":
         state["last_summary_time"] = now
+    if floor_rate is not None:
+        state["last_floor_rate"] = floor_rate
     _save_state(state)
 
 

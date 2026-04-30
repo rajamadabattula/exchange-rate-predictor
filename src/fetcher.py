@@ -49,8 +49,12 @@ def init_db() -> None:
                 id                SERIAL PRIMARY KEY,
                 last_alert_time   TIMESTAMP,
                 last_signal       TEXT,
-                last_summary_time TIMESTAMP
+                last_summary_time TIMESTAMP,
+                last_floor_rate   DOUBLE PRECISION
             )
+        """)
+        cur.execute("""
+            ALTER TABLE alert_state ADD COLUMN IF NOT EXISTS last_floor_rate DOUBLE PRECISION
         """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS daily_targets (

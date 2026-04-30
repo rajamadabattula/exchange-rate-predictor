@@ -19,7 +19,7 @@ import config
 from src.fetcher   import bootstrap, fetch_current_rate, save_current_rate, load_rates, get_manual_target, get_minimum_target
 from src.predictor import analyse
 from src.decision  import decide, format_message
-from src.alerter   import send_message, should_send_alert, record_alert, get_chat_id
+from src.alerter   import send_message, should_send_alert, should_send_floor_alert, record_alert, get_chat_id
 from src.accuracy  import save_prediction
 
 
@@ -75,22 +75,31 @@ def run_check() -> None:
     save_prediction(indicators, decision.signal.value)
 
     # 5. Send alert if conditions are met
-    # Floor-triggered SEND NOW always fires — it's a stop-loss, not a normal signal flip.
-    force_send = decision.floor_triggered
-    if force_send or should_send_alert(decision.signal.value):
+    if decision.floor_triggered:
+        # Floor alert: only re-send if rate dropped another 0.10 from last floor alert
+        send = should_send_floor_alert(indicators.current_rate)
+        floor_rate = indicators.current_rate if send else None
+    else:
+        send = should_send_alert(decision.signal.value)
+        floor_rate = None
+
+    if send:
         is_summary = decision.signal.value != "SEND NOW"
         message = format_message(decision, indicators, is_summary=is_summary)
         sent    = send_message(message)
         if sent:
-            record_alert(decision.signal.value, is_summary=is_summary)
-            logger.info("Alert sent — signal=%s | rate=%.4f | target=%.4f | floor=%s",
+            record_alert(decision.signal.value, is_summary=is_summary, floor_rate=floor_rate)
+            logger.info("Alert sent — signal=%s | rate=%.4f | target=%.4f | floor_triggered=%s",
                         decision.signal.value, indicators.current_rate, indicators.dynamic_target,
                         decision.floor_triggered)
         else:
             logger.warning("Alert FAILED to send — Telegram error.")
     else:
-        logger.info("Alert suppressed — within quiet window (last sent < %dh ago).",
-                    config.ALERT_INTERVAL_HOURS)
+        if decision.floor_triggered:
+            logger.info("Floor alert suppressed — rate hasn't dropped 0.10 from last floor alert.")
+        else:
+            logger.info("Alert suppressed — within quiet window (last sent < %dh ago).",
+                        config.ALERT_INTERVAL_HOURS)
 
 
 # -----------------------------------------------------------------------------
