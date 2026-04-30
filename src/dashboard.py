@@ -402,8 +402,18 @@ df_chart = (df_7d[df_7d["timestamp"] >= df_7d["timestamp"].iloc[-1]
             - pd.Timedelta(days=_cutoff_days)]
             if not df_7d.empty else df_7d)
 
+# Convert timestamps to Mountain Time for display
+from zoneinfo import ZoneInfo as _ZI
+_MT = _ZI("America/Denver")
+if not df_chart.empty:
+    _ts = df_chart["timestamp"]
+    if _ts.dt.tz is None:
+        _ts = _ts.dt.tz_localize("UTC")
+    df_chart = df_chart.copy()
+    df_chart["timestamp"] = _ts.dt.tz_convert(_MT)
+
 with _chart_header:
-    st.markdown(f'<div class="section-title">USD/INR · Last {window} + 48h Forecast · UTC</div>',
+    st.markdown(f'<div class="section-title">USD/INR · Last {window} + 48h Forecast · MT</div>',
                 unsafe_allow_html=True)
 
 if not df_chart.empty:
@@ -440,7 +450,7 @@ if not df_chart.empty:
         line=dict(color="#1D4ED8", width=2.5, shape="spline", smoothing=1.2),
         hovertemplate=(
             "<b>%{y:.4f}</b> INR/USD"
-            "<br><span style='color:#9CA3AF'>%{x|%b %d · %H:%M UTC}</span>"
+            "<br><span style='color:#9CA3AF'>%{x|%b %d · %H:%M MT}</span>"
             "<extra></extra>"
         ),
     ))
