@@ -480,13 +480,10 @@ if not df_chart.empty:
     # SEND NOW markers from history
     _markers = get_send_now_markers(days=_cutoff_days)
     if not _markers.empty:
-        _markers["timestamp"] = pd.to_datetime(_markers["timestamp"], utc=True)
-        _df_c_tz = df_chart.copy()
-        if _df_c_tz["timestamp"].dt.tz is None:
-            _df_c_tz["timestamp"] = _df_c_tz["timestamp"].dt.tz_localize("UTC")
+        _markers["timestamp"] = pd.to_datetime(_markers["timestamp"], utc=True).dt.tz_convert(_MT)
         _merged = pd.merge_asof(
             _markers.sort_values("timestamp"),
-            _df_c_tz[["timestamp", "rate"]].sort_values("timestamp"),
+            df_chart[["timestamp", "rate"]].sort_values("timestamp"),
             on="timestamp", direction="nearest",
         )
         if not _merged.empty and "rate" in _merged.columns:
