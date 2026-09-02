@@ -2,7 +2,7 @@ name: Rate Check
 
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour (~720 min/month, within free tier limit)
+    - cron: '*/15 * * * *'   # every 15 min — GitHub delays/drops schedule triggers, so over-provision to actually land close to hourly
   workflow_dispatch:           # allow manual trigger from GitHub UI
 
 jobs:
