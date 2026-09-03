@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: '*/15 * * * *'   # every 15 min — GitHub delays/drops schedule triggers, so over-provision to actually land close to hourly
   workflow_dispatch:           # allow manual trigger from GitHub UI
+  repository_dispatch:         # allow an external cron service to trigger reliably
+    types: [hourly-check]
 
 jobs:
   check:
