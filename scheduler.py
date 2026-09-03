@@ -30,8 +30,10 @@ from src.accuracy  import save_prediction
 def setup_logging() -> None:
     Path("logs").mkdir(exist_ok=True)
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s")
-    file_handler = RotatingFileHandler(config.LOG_PATH, maxBytes=2_000_000, backupCount=3)
+    file_handler = RotatingFileHandler(config.LOG_PATH, maxBytes=2_000_000, backupCount=3, encoding="utf-8")
     file_handler.setFormatter(formatter)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     logging.basicConfig(level=logging.INFO, handlers=[file_handler, console_handler])
@@ -76,15 +78,20 @@ def run_check() -> None:
 
     # 5. Send alert if conditions are met
     if decision.floor_triggered:
-        # Floor alert: only re-send if rate dropped another 0.10 from last floor alert
-        send = should_send_floor_alert(indicators.current_rate)
-        floor_rate = indicators.current_rate if send else None
+        # Floor alert: re-send immediately if rate dropped another 0.10 from last
+        # floor alert, but don't let that suppression also swallow the periodic
+        # summary — the hourly clock still applies independently.
+        send_floor_drop = should_send_floor_alert(indicators.current_rate)
+        send_periodic   = should_send_alert(decision.signal.value)
+        send        = send_floor_drop or send_periodic
+        floor_rate  = indicators.current_rate if send_floor_drop else None
+        is_summary  = send_periodic
     else:
         send = should_send_alert(decision.signal.value)
         floor_rate = None
+        is_summary = decision.signal.value != "SEND NOW"
 
     if send:
-        is_summary = decision.signal.value != "SEND NOW"
         message = format_message(decision, indicators, is_summary=is_summary)
         sent    = send_message(message)
         if sent:
