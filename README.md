@@ -5,6 +5,7 @@
 
 A personal finance tool that monitors the USD/INR exchange rate, predicts the best time to send money internationally, and delivers plain-English alerts via Telegram — powered by technical indicators, a multi-model forecaster, and an optional LLM-powered advisor.
 
+
 ---
 
 🔴 **[Live Dashboard → exchange-rate-predictor.streamlit.app](https://exchange-rate-predictor.streamlit.app/)**
